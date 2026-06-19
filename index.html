@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+    <title>Perfect Sample BR — SUPREME ENGINE v20</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --neon-green: #00ff66; --bg: #000; }
+        
+        /* 🕹️ HABBO-STYLE PIXEL RENDERING ENGINE */
+        * { 
+            image-rendering: pixelated !important; 
+            image-rendering: crisp-edges !important;
+            font-smooth: never; -webkit-font-smoothing: none;
+        }
+        
+        body { 
+            background: #000; color: #fff; font-family: 'Space Grotesk', sans-serif; 
+            margin: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 100vh;
+        }
+
+        /* GAME RESOLUTION 16:9 FIXED */
+        #game-viewport {
+            width: 1280px; height: 720px;
+            display: none; position: relative;
+            transform-origin: center;
+            background: #050505;
+        }
+
+        /* MPC CHASSI - DITHERED STEEL TEXTURE */
+        .mpc-master-frame {
+            background: #1a1a1a;
+            border: 4px solid #333;
+            box-shadow: 10px 10px 0 #000, inset 4px 4px 0 #444, inset -4px -4px 0 #000;
+            padding: 25px; position: relative; width: 1180px; height: 650px;
+            /* Efeito de metal pontilhado */
+            background-image: radial-gradient(#222 1px, transparent 1px);
+            background-size: 4px 4px;
+        }
+        .wood-side { position: absolute; right: -25px; top: 0; bottom: 0; width: 25px; background: #1a0f05; border: 4px solid #000; border-radius: 0 8px 8px 0; }
+
+        /* HABBO WINDOW REBORN (DESIGN LEGACY) */
+        .habbo-ui-box {
+            background: #f0f0f0; border: 2px solid #000;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.5); color: #000;
+        }
+        .habbo-ui-header { background: #004f5d; padding: 6px 12px; color: #fff; font-size: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .habbo-tab { 
+            background: #adadad; border: 2px solid #000; padding: 10px; cursor: pointer; 
+            border-bottom: 0; display: flex; items: center; justify-content: center; margin-right: 2px;
+        }
+        .habbo-tab.active { background: #f0f0f0; border-color: #000; padding-top: 12px; margin-top: -2px; }
+
+        /* AVATAR IMAGER ENGINE (Z-INDEX STACKING) */
+        .imager-container {
+            width: 280px; height: 420px; background: #000; border: 4px solid #222;
+            position: relative; display: flex; align-items: center; justify-content: center;
+            box-shadow: inset 0 0 40px #000;
+        }
+        .sprite-layer {
+            position: absolute; width: 220px; height: 350px;
+            background-size: contain; background-repeat: no-repeat;
+            bottom: 40px; transition: transform 0.2s ease;
+        }
+
+        /* MPC PADS (RUBBER FEEL) */
+        .mpc-pad-unit {
+            background: linear-gradient(180deg, #333 0%, #111 100%);
+            border: 3px solid #444; border-bottom: 10px solid #000;
+            border-radius: 12px; cursor: pointer; transition: 0.05s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Press Start 2P', cursive; font-size: 7px; color: #eee;
+        }
+        .mpc-pad-unit:active { transform: translateY(6px); border-bottom-width: 4px; background: var(--orange); }
+
+        /* VU METER PRO */
+        .vu-mega-grid { display: flex; gap: 3px; height: 30px; width: 450px; background: #111; padding: 4px; border: 2px solid #333; }
+        .vu-pixel { flex: 1; background: #1a1a1a; }
+        .p-green { background: #00ff66; box-shadow: 0 0 10px #00ff66; }
+        .p-yellow { background: #ffff00; }
+        .p-red { background: #ff0000; }
+
+        .input-pixel-pro { background: #fff; border: 3px solid #000; padding: 12px; width: 100%; color: #000; font-size: 11px; font-weight: bold; outline: none; }
+        
+        /* STORE ICONOGRAPHY */
+        .icon-bc { color: var(--gold); font-weight: bold; }
+        .icon-bt { color: #fff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- LOADING SCREEN VU-METER SUPREME -->
+    <div id="loading-screen" class="fixed inset-0 bg-[#050505] z-[9999] flex flex-col items-center justify-center">
+        <img src="logo.png" style="width: 400px;" class="animate-pulse mb-8">
+        <div class="pixel text-gold text-[10px] mb-4 uppercase tracking-[0.3em]" id="load-label">Scanning_Audio_Core...</div>
+        <div class="vu-mega-grid" id="vu-meter"></div>
+        <p class="text-gray-800 text-[7px] mt-6 tracking-[2em]">PERFECT_SAMPLE_BR_V20</p>
+    </div>
+
+    <div id="game-viewport">
+        
+        <!-- IDENTITY STATION (LOGIN + WARDROBE) -->
+        <div id="auth-screen" class="fixed inset-0 z-[5000] bg-black/95 flex items-center justify-center hidden p-8">
+            <div class="habbo-ui-box w-[1150px] h-[750px] flex flex-col">
+                <div class="habbo-ui-header">
+                    <span class="uppercase">Hardware Activation — Contract #9920</span>
+                    <button onclick="location.reload()" class="font-bold">[X]</button>
+                </div>
+                
+                <div class="flex flex-grow p-8 gap-8 overflow-hidden bg-[#e1e1e1]">
+                    <!-- COL 1: AUTH FORM -->
+                    <div class="w-80 flex flex-col justify-between">
+                        <div class="bg-gray-200 border-2 border-gray-400 p-6">
+                            <span class="text-[8px] font-black uppercase mb-4 block text-gray-600">Contract_Signature</span>
+                            <input type="email" id="u-email" placeholder="EMAIL" class="input-pixel-pro mb-3">
+                            <input type="password" id="u-pass" placeholder="CHAVE" class="input-pixel-pro mb-3">
+                            <div id="reg-extra" class="hidden">
+                                <input type="text" id="u-nick" placeholder="PRODUCER_NAME" class="input-pixel-pro">
+                            </div>
+                            <button onclick="handleAuth()" id="btn-auth-main" class="w-full bg-[#3d9a30] text-white py-5 border-b-[8px] border-[#1e4e18] font-bold text-xs mt-4 hover:brightness-110">CONECTAR_ARENA</button>
+                        </div>
+                        <button onclick="toggleRegMode()" id="btn-reg-mode" class="text-[10px] text-gray-500 font-bold uppercase underline">Novo Produtor?</button>
+                    </div>
+
+                    <!-- COL 2: IMAGER DISPLAY (9:16 ISOMETRIC) -->
+                    <div class="flex-grow flex flex-col items-center justify-center">
+                        <div class="imager-container">
+                            <!-- Stacking Layers -->
+                            <div id="l-body" class="sprite-layer"></div>
+                            <div id="l-bottoms" class="sprite-layer"></div>
+                            <div id="l-tops" class="sprite-layer"></div>
+                            <div id="l-hair" class="sprite-layer"></div>
+                            <div id="l-acc" class="sprite-layer"></div>
+                            <div style="position: absolute; bottom: 35px; width: 140px; height: 12px; background: rgba(0,0,0,0.6); border-radius: 50%; filter: blur(4px);"></div>
+                        </div>
+                        <div class="flex gap-4 mt-6">
+                            <button class="bg-gray-300 p-4 border-2 border-black" onclick="rotate(-45)">◀</button>
+                            <button class="bg-gray-300 p-4 border-2 border-black" onclick="rotate(45)">▶</button>
+                        </div>
+                    </div>
+
+                    <!-- COL 3: TRAP WARDROBE (THE VIAJOVEM STYLE) -->
+                    <div class="w-[450px] flex flex-col bg-gray-300 border-2 border-gray-400 p-4">
+                        <div class="flex mb-1" id="tabs">
+                            <div class="habbo-tab active" onclick="setCat('body')">👤</div>
+                            <div class="habbo-tab" onclick="setCat('hair')">💇</div>
+                            <div class="habbo-tab" onclick="setCat('tops')">👕</div>
+                            <div class="habbo-tab" onclick="setCat('bottoms')">👖</div>
+                            <div class="habbo-tab" onclick="setCat('acc')">💎</div>
+                        </div>
+                        <div id="pixel-grid" class="grid grid-cols-4 gap-2 overflow-y-auto pr-2 flex-grow bg-white border-2 border-black p-4 shadow-inner">
+                            <!-- Items auto-load here -->
+                        </div>
+                        <button onclick="finishReg()" class="w-full bg-orange-600 text-white py-5 border-b-[8px] border-[#803300] font-bold text-sm mt-4">GRAVAR_PERFIL_V20</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ARENA MPC (MAIN HARDWARE) -->
+        <div id="app" class="mpc-master-frame hidden">
+            <div class="wood-side"></div>
+            <!-- HUD PRO -->
+            <div class="flex justify-between items-center mb-8 bg-black/90 p-8 border-4 border-black shadow-2xl">
+                <div class="flex items-center gap-8">
+                    <div class="w-24 h-24 bg-black border-4 border-[#333] overflow-hidden relative">
+                         <!-- Layers HUD Sync -->
+                         <div id="hud-l-body" class="sprite-layer scale-50" style="bottom:-110px; left:-60px;"></div>
+                         <div id="hud-l-tops" class="sprite-layer scale-50" style="bottom:-110px; left:-60px;"></div>
+                    </div>
+                    <div>
+                        <h2 class="text-orange-500 text-[18px] uppercase font-black" id="user-display">---</h2>
+                        <div class="flex gap-2">
+                             <span class="bg-[#003311] text-emerald-400 text-[8px] px-2 py-1 border border-emerald-500">LIVE_SESSAO</span>
+                             <span class="bg-[#111] text-gray-500 text-[8px] px-2 py-1 border border-gray-700">LEGEND_RANK</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-gold text-[28px] block font-black bc-anim">1.500 <span class="text-[10px]">BC</span></span>
+                    <button onclick="handleLogout()" class="text-red-600 text-[8px] mt-2 underline uppercase font-bold">Disconnect</button>
+                </div>
+            </div>
+
+            <!-- TELA LCD CENTRAL -->
+            <div class="grid grid-cols-12 gap-8">
+                <div class="col-span-8">
+                    <div class="bg-[#050a05] border-[12px] border-[#000] rounded-[30px] h-[460px] p-10 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+                        <div class="h-full flex flex-col justify-between text-emerald-500 font-mono relative z-10">
+                             <div class="flex justify-between border-b border-white/5 pb-2 text-[11px]">
+                                <span>KERNEL_V20_SUPREME</span>
+                                <span id="socket-status" class="animate-pulse">● STABLE_CONNECTION</span>
+                             </div>
+                             <div class="flex flex-col items-center">
+                                <h1 class="pixel text-white text-[16px] mb-10 text-center leading-loose tracking-[0.3em]">INITIALIZE COMPETITIVE MATCHMAKING?</h1>
+                                <button onclick="alert('Buscando Arena...')" class="bg-[#003311] border-4 border-emerald-500 px-16 py-10 text-emerald-400 text-[14px] hover:bg-emerald-500 hover:text-black transition-all font-bold">START_QUEUE</button>
+                             </div>
+                             <p class="text-[8px] opacity-30 text-center uppercase">Copyright Perfect Sample BR 2030 // Physically Based Rendering</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- SIDEBAR MEMORY -->
+                <div class="col-span-4 bg-black/40 border-4 border-black p-8 flex flex-col items-center justify-between">
+                    <div class="imager-container w-full h-72 border-gold/20 overflow-hidden">
+                         <div id="side-l-body" class="sprite-layer scale-50" style="bottom: -110px;"></div>
+                         <div id="side-l-tops" class="sprite-layer scale-50" style="bottom: -110px;"></div>
+                         <button onclick="openWardrobe()" class="absolute bottom-4 right-4 bg-gold text-black p-3 text-[12px] font-black border-4 border-black hover:scale-110 transition-all">👕 EDIT</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 w-full mt-6">
+                        <button class="bg-black border-2 border-gold p-3 text-gold text-[10px] font-bold">S1</button>
+                        <button class="bg-black border-2 border-gray-800 p-3 text-gray-800 text-[10px]">S2</button>
+                        <button class="bg-black border-2 border-gray-800 p-3 text-gray-800 text-[10px]">S3</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PADS -->
+            <div class="grid grid-cols-4 gap-12 mt-12">
+                <div class="mpc-pad-unit"><span class="text-[12px]">ARENA</span></div>
+                <div class="mpc-pad-unit"><span class="text-[12px]">PASS</span></div>
+                <div id="admin-pad" class="mpc-pad-unit hidden" onclick="window.location.href='admin.html'"><span class="text-red-500 font-bold">ROOT</span></div>
+                <div class="mpc-pad-unit border-gold/40" onclick="toggleStore()"><span class="text-gold font-bold">MARKET</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MARKETPLACE RP SUPREME -->
+    <div id="store-overlay" class="fixed inset-0 z-[6000] bg-black/98 hidden items-center justify-center p-12">
+        <div class="mpc-master-frame w-[1100px] h-[750px] flex flex-col">
+            <div class="flex justify-between items-center border-b-8 border-black pb-6 mb-8">
+                <h2 class="text-gold text-[14px] uppercase tracking-widest font-black italic">Marketplace_RP_v20</h2>
+                <button onclick="toggleStore()" class="text-red-600 text-[14px] font-bold">[X] CANCEL</button>
+            </div>
+            <div class="flex gap-10 flex-grow overflow-hidden">
+                <div class="w-80 space-y-4">
+                    <button class="w-full text-left p-6 bg-gold text-black text-[10px] font-black border-4 border-black">💎 PREMIUN BC</button>
+                    <button class="w-full text-left p-6 bg-[#222] text-gray-500 text-[10px] border-4 border-black">👕 VESTUÁRIO BT</button>
+                    <button class="w-full text-left p-6 bg-[#222] text-gray-500 text-[10px] border-4 border-black">🎹 DRUM KITS</button>
+                </div>
+                <div class="flex-grow grid grid-cols-3 gap-8 overflow-y-auto pr-6" id="store-grid">
+                    <!-- Itens da Loja -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        let visual = { body: 1, hair: 1, tops: 1, bottoms: 1, acc: 1 };
+        let currentCat = 'body';
+        let isRegister = false;
+
+        // 1. ENGINE DE CARREGAMENTO VU-METER PRO
+        window.onload = () => {
+            const vu = document.getElementById('vu-meter');
+            for(let i=0; i<32; i++) {
+                const s = document.createElement('div');
+                s.className = "vu-pixel transition-all duration-75";
+                vu.appendChild(s);
+            }
+            let p = 0;
+            const segments = vu.children;
+            const interval = setInterval(() => {
+                p++;
+                if(p <= segments.length) {
+                    const s = segments[p-1];
+                    if(p < 20) s.className = "vu-pixel p-green";
+                    else if(p < 28) s.className = "vu-pixel p-yellow";
+                    else s.className = "vu-pixel p-red";
+                    if(p % 8 === 0) document.getElementById('load-label').innerText = "Calibrating_PBR_Shaders...";
+                }
+                if(p >= segments.length + 15) {
+                    clearInterval(interval);
+                    document.getElementById('loading-screen').style.display = 'none';
+                    checkSession();
+                }
+            }, 60);
+        };
+
+        // 2. TRUE LAYER IMAGER (HABBO ENGINE EMULATION)
+        function updateRender() {
+            const baseUrl = `https://api.dicebear.com/7.x/adventurer/svg?backgroundColor=transparent&seed=`;
+            
+            // Camadas do Boneco Lab
+            document.getElementById('l-body').style.backgroundImage = `url('${baseUrl}body${visual.body}')`;
+            document.getElementById('l-hair').style.backgroundImage = `url('${baseUrl}hair${visual.hair}')`;
+            document.getElementById('l-tops').style.backgroundImage = `url('${baseUrl}tops${visual.tops}')`;
+            document.getElementById('l-bottoms').style.backgroundImage = `url('${baseUrl}bottoms${visual.bottoms}')`;
+            document.getElementById('l-acc').style.backgroundImage = `url('${baseUrl}acc${visual.acc}')`;
+
+            // Sync HUD and Sidebar
+            const finalSeed = JSON.stringify(visual);
+            const finalUrl = `${baseUrl}${finalSeed}`;
+            document.getElementById('hud-l-body').style.backgroundImage = `url('${baseUrl}body${visual.body}')`;
+            document.getElementById('hud-l-tops').style.backgroundImage = `url('${baseUrl}tops${visual.tops}')`;
+            document.getElementById('side-l-body').style.backgroundImage = `url('${baseUrl}body${visual.body}')`;
+            document.getElementById('side-l-tops').style.backgroundImage = `url('${baseUrl}tops${visual.tops}')`;
+        }
+
+        window.setCat = (c) => { 
+            currentCat = c; 
+            document.querySelectorAll('.habbo-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderItems(); 
+        };
+
+        function renderItems() {
+            const g = document.getElementById('item-grid'); g.innerHTML = '';
+            for(let i=1; i<=40; i++) {
+                // Filtro VIP: No Cadastro itens > 20 são bloqueados (Virão da Loja)
+                if(i > 20) continue;
+                const d = document.createElement('div');
+                d.className = "item-box";
+                // PREVIEW DO ITEM NA GRADE (ISO STYLE)
+                d.innerHTML = `<img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${currentCat}${i}&backgroundColor=transparent" class="w-16">`;
+                d.onclick = () => { visual[currentCat] = i; updateRender(); };
+                g.appendChild(d);
+            }
+        }
+
+        // 3. AUTH & ENGINE BOOT
+        function checkSession() {
+            onAuthStateChanged(auth, (user) => {
+                document.getElementById('game-viewport').style.display = 'flex';
+                scaleUI();
+                if (user) {
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('app').classList.remove('hidden');
+                    document.getElementById('user-display').innerText = user.email.split('@')[0].toUpperCase();
+                    if(user.email === 'eahprovideo1@gmail.com') document.getElementById('admin-pad').classList.remove('hidden');
+                    updateRender();
+                } else {
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                    renderItems(); updateRender();
+                }
+            });
+        }
+
+        window.handleAuth = async () => {
+            const e = document.getElementById('u-email').value;
+            const p = document.getElementById('u-pass').value;
+            try {
+                if(isRegister) await createUserWithEmailAndPassword(auth, e, p);
+                else await signInWithEmailAndPassword(auth, e, p);
+            } catch (err) { alert("ERROR: " + err.message); }
+        };
+
+        window.toggleRegMode = () => {
+            isRegister = !isRegister;
+            document.getElementById('reg-extra').classList.toggle('hidden', !isRegister);
+            document.getElementById('btn-auth-main').innerText = isRegister ? "ASSINAR_CONTRATO" : "CONECTAR";
+        };
+
+        window.toggleStore = () => {
+            const s = document.getElementById('store-overlay');
+            s.style.display = (s.style.display === 'flex') ? 'none' : 'flex';
+            if(s.style.display === 'flex') renderStore();
+        };
+
+        function renderStore() {
+            const g = document.getElementById('store-grid'); g.innerHTML = '';
+            const items = [
+                { name: "ICE CHAIN SUPREME", price: "500 BC", r: "LENDÁRIO" },
+                { name: "TRAP MASK GOLD", price: "1200 BC", r: "ÉPICO" },
+                { name: "BASIC OUTFIT", price: "50 BT", r: "COMUM" }
+            ];
+            items.forEach(it => {
+                g.innerHTML += `
+                    <div class="bg-[#050505] p-6 border-[8px] border-black text-center hover:border-gold transition-all">
+                        <span class="text-[8px] text-gold font-bold">${it.r}</span>
+                        <div class="w-full h-32 bg-[#111] my-4 border-2 border-white/5"></div>
+                        <h4 class="text-[10px] mb-4 uppercase font-black">${it.name}</h4>
+                        <button class="w-full bg-gold text-black py-4 font-black text-[12px] border-b-[8px] border-[#803300]">${it.price}</button>
+                    </div>
+                `;
+            });
+        }
+
+        function scaleUI() {
+            const v = document.getElementById('game-viewport');
+            const s = Math.min(window.innerWidth / 1350, window.innerHeight / 850);
+            v.style.transform = `scale(${s})`;
+        }
+        window.addEventListener('resize', scaleUI);
+        window.handleLogout = () => { if(confirm("Terminate Session?")) signOut(auth).then(() => location.reload()); };
+    </script>
+</body>
+</html>
