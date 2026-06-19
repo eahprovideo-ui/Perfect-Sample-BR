@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Sample BR — Arena v8.0 Legacy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;700&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { 
+            --gold: #D4A24C; 
+            --orange: #ff5500; 
+            --neon-blue: #00f0ff;
+            --bg: #050505;
+            --panel-hex: #1a1a1a;
+        }
+        
+        body { 
+            background: var(--bg); color: #f5f5f5; 
+            font-family: 'Space Grotesk', sans-serif; 
+            margin: 0; overflow: hidden; 
+            display: flex; align-items: center; justify-content: center; min-height: 100vh;
+        }
+
+        .pixel { font-family: 'Press Start 2P', cursive; }
+        .display-font { font-family: 'Syncopate', sans-serif; text-transform: uppercase; }
+
+        /* FUNDO LOGO BORRADA */
+        .bg-logo-blur {
+            position: fixed; inset: 0; z-index: -1;
+            background: url('logo.png') center/50% no-repeat;
+            filter: blur(100px) brightness(0.3);
+            animation: moveLogo 25s infinite alternate;
+        }
+        @keyframes moveLogo { from { transform: scale(1) rotate(0); } to { transform: scale(1.3) rotate(5deg); } }
+
+        /* CHASSI MPC INDUSTRIAL */
+        .mpc-chassi {
+            background: linear-gradient(145deg, #2a2a2a 0%, #111 100%);
+            border: 8px solid #222; border-radius: 50px; padding: 40px; position: relative;
+            box-shadow: 0 50px 100px #000, inset 0 2px 5px rgba(255,255,255,0.1);
+            border-right: 25px solid #1a0f05;
+        }
+
+        /* POP-UP TIPO EQUIPAMENTO DE SOM (GUARDA-ROUPA) */
+        .equipment-popup {
+            background: #151515; border: 4px solid #333; border-radius: 30px;
+            box-shadow: 0 0 50px #000, inset 0 0 20px rgba(212, 162, 76, 0.05);
+            width: 850px; padding: 30px; position: relative;
+        }
+
+        /* ABAS HABBO STYLE */
+        .habbo-tab {
+            background: #222; border: 2px solid #333; padding: 10px; cursor: pointer;
+            transition: 0.2s; display: flex; items-center; justify-content: center;
+        }
+        .habbo-tab.active { background: var(--gold); color: #000; border-color: #fff; }
+
+        /* GRADE DE ITENS */
+        .item-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+            height: 350px; overflow-y: auto; padding-right: 10px;
+        }
+        .item-card {
+            background: #000; border: 2px solid #222; border-radius: 10px;
+            aspect-ratio: 1; cursor: pointer; position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .item-card:hover { border-color: var(--gold); }
+        .item-card.selected { border-color: var(--neon-blue); box-shadow: 0 0 15px var(--neon-blue); }
+
+        /* BONECO HABBO PREVIEW */
+        .habbo-preview-platform {
+            width: 250px; height: 350px; background: radial-gradient(circle, #222 0%, #000 100%);
+            border-radius: 20px; border: 2px solid #333; position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .avatar-layer {
+            position: absolute; width: 180px; height: 180px;
+            background-size: contain; background-repeat: no-repeat;
+            image-rendering: pixelated;
+        }
+
+        .mpc-pad {
+            background: #2a2a2a; border-bottom: 8px solid #000; border-radius: 15px; height: 90px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .mpc-pad:active { transform: translateY(4px); border-bottom-width: 2px; background: var(--orange); }
+
+        .neon-text-gold { color: var(--gold); text-shadow: 0 0 10px rgba(212, 162, 76, 0.5); }
+        .neon-text-blue { color: var(--neon-blue); text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+    </style>
+</head>
+<body>
+
+    <div class="bg-logo-blur"></div>
+
+    <!-- TELA DE LOGIN / CADASTRO -->
+    <div id="auth-overlay" class="fixed inset-0 z-[1000] bg-black flex items-center justify-center">
+        <div class="equipment-popup w-[450px] text-center border-gold/20">
+            <img src="logo.png" class="w-32 mx-auto mb-8 filter drop-shadow-[0_0_15px_#D4A24C]" alt="Logo">
+            
+            <div id="login-fields">
+                <span class="pixel text-[8px] neon-text-gold block mb-2 text-left ml-2">ID_PRODUTOR</span>
+                <input type="email" id="email" class="w-full bg-black border border-white/10 p-4 rounded-xl mb-4 text-white outline-none focus:border-gold">
+                
+                <span class="pixel text-[8px] neon-text-gold block mb-2 text-left ml-2">SENHA_ACESSO</span>
+                <input type="password" id="pass" class="w-full bg-black border border-white/10 p-4 rounded-xl mb-8 text-white outline-none focus:border-gold">
+                
+                <button onclick="handleLogin()" class="w-full bg-orange-600 py-4 rounded-2xl display-font font-bold text-sm tracking-widest hover:bg-orange-500 transition-all">CONECTAR</button>
+                <button onclick="showWardrobe()" class="mt-6 text-gold pixel text-[8px] hover:text-white transition-colors uppercase">Cadastre-se</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GUARDA-ROUPA TIPO HABBO -->
+    <div id="wardrobe-overlay" class="fixed inset-0 z-[2000] bg-black/95 hidden flex items-center justify-center">
+        <div class="equipment-popup">
+            <div class="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                <h2 class="display-font text-gold text-lg tracking-tighter">Guarda-roupa v8.0</h2>
+                <button onclick="hideWardrobe()" class="text-white pixel text-[10px]">X</button>
+            </div>
+
+            <div class="flex gap-8">
+                <!-- COLUNA ESQUERDA: ABAS E GRADE -->
+                <div class="flex-grow">
+                    <div class="flex mb-4">
+                        <div class="habbo-tab active" onclick="switchCategory('body')">👤</div>
+                        <div class="habbo-tab" onclick="switchCategory('hair')">💇</div>
+                        <div class="habbo-tab" onclick="switchCategory('tops')">👕</div>
+                        <div class="habbo-tab" onclick="switchCategory('bottoms')">👖</div>
+                        <div class="habbo-tab" onclick="switchCategory('acc')">💎</div>
+                    </div>
+                    <div id="wardrobe-grid" class="item-grid custom-scrollbar">
+                        <!-- Itens gerados via JS -->
+                    </div>
+                </div>
+
+                <!-- COLUNA DIREITA: PREVIEW BONECO -->
+                <div class="w-72 flex flex-col items-center">
+                    <div class="habbo-preview-platform">
+                        <!-- Boneco Camadas -->
+                        <div id="layer-skin" class="avatar-layer"></div>
+                        <div id="layer-hair" class="avatar-layer"></div>
+                        <div id="layer-tops" class="avatar-layer"></div>
+                        <div id="layer-bottoms" class="avatar-layer"></div>
+                        <div id="layer-acc" class="avatar-layer"></div>
+                    </div>
+                    <div class="flex gap-4 mt-4">
+                        <button class="bg-white/10 p-3 rounded-full text-white" onclick="rotatePreview(-1)">◀</button>
+                        <button class="bg-white/10 p-3 rounded-full text-white" onclick="rotatePreview(1)">▶</button>
+                    </div>
+                    <button onclick="finishRegistration()" class="w-full mt-6 bg-emerald-600 py-4 rounded-xl display-font text-[10px] text-white">SALVAR VISUAL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARENA MPC (PÁGINA PRINCIPAL) -->
+    <div id="app-main" class="hidden">
+        <div class="mpc-chassi w-full max-w-6xl">
+            <div class="flex justify-between items-center mb-10 bg-black/60 p-8 rounded-[40px] border border-white/5">
+                <div class="flex items-center gap-6">
+                    <div class="w-20 h-20 bg-black border-2 border-orange-500/20 rounded-full flex items-center justify-center overflow-hidden">
+                        <img id="user-avatar-hud" src="" class="w-full h-full scale-125">
+                    </div>
+                    <div>
+                        <h2 class="display-font text-orange-500 text-lg" id="user-display">---</h2>
+                        <span class="pixel text-[8px] neon-text-blue">LEGEND PRODUCER #001</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <img src="logo.png" class="w-20 mb-2 opacity-50 ml-auto" alt="PSBR">
+                    <span class="text-gold font-bold text-2xl display-font">1.500 BC</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-10">
+                <div class="col-span-8">
+                    <div class="lcd-display h-[480px] p-12">
+                         <!-- Conteúdo da Arena mantido e melhorado visualmente -->
+                         <div class="h-full flex flex-col justify-between neon-text-blue font-mono">
+                            <div class="flex justify-between border-b border-white/5 pb-2">
+                                <span>KERNEL_V8.0_READY</span>
+                                <span id="socket-status">CONNECTING...</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <h1 class="pixel text-white text-[15px] mb-10 tracking-widest">START NEW BATTLE?</h1>
+                                <button onclick="startMatchmaking()" class="px-14 py-6 bg-blue-900/10 border-2 border-neon-blue rounded-[30px] pixel text-[11px] neon-text-blue hover:bg-neon-blue hover:text-black transition-all">INITIALIZE_ARENA</button>
+                            </div>
+                            <div class="text-[10px] opacity-40">PERFECT SAMPLE BR INDUSTRIAL UNITS</div>
+                         </div>
+                    </div>
+                </div>
+                <!-- SIDEBAR PREVIEW -->
+                <div class="col-span-4 bg-black/40 rounded-[50px] border border-white/5 p-8 flex flex-col items-center">
+                    <div class="w-full h-64 bg-black rounded-3xl border-2 border-gold/10 flex items-center justify-center overflow-hidden relative">
+                        <img id="user-avatar-side" src="" class="w-full h-full scale-125">
+                        <button onclick="showWardrobe()" class="absolute bottom-3 right-3 bg-gold text-black p-2 rounded-lg text-xs font-bold shadow-2xl">👕 EDIT</button>
+                    </div>
+                    <div class="w-full mt-6 space-y-4 uppercase text-[11px]">
+                        <div class="flex justify-between text-gray-500 border-b border-white/5 pb-2"><span>Beat_Coins</span><span class="text-gold">1.500</span></div>
+                        <div class="flex justify-between text-gray-500"><span>Rank_XP</span><span class="text-blue-400">92%</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-8 mt-14">
+                <div class="mpc-pad"><span class="pixel text-[10px] text-white">ARENA</span></div>
+                <div class="mpc-pad"><span class="pixel text-[10px] text-white">PASS</span></div>
+                <div id="admin-pad" class="mpc-pad hidden" onclick="window.location.href='admin.html'"><span class="pixel text-[10px] text-red-500">ADMIN</span></div>
+                <div class="mpc-pad border-gold/40" onclick="alert('Loja Completa em Breve!')"><span class="pixel text-[10px] text-gold">MARKET</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // MASTER ADMIN
+        const MASTER = "eahprovideo1@gmail.com";
+
+        // ENGINE DO AVATAR
+        let currentVisual = { body: 1, hair: 1, tops: 1, bottoms: 1, acc: 1 };
+        let currentCategory = 'body';
+
+        const itemDatabase = {
+            body: Array.from({length: 50}, (_, i) => ({ id: i+1, vip: false })),
+            hair: Array.from({length: 50}, (_, i) => ({ id: i+1, vip: i > 30 })),
+            tops: Array.from({length: 50}, (_, i) => ({ id: i+1, vip: i > 25 })),
+            bottoms: Array.from({length: 50}, (_, i) => ({ id: i+1, vip: i > 35 })),
+            acc: Array.from({length: 50}, (_, i) => ({ id: i+1, vip: i > 15 }))
+        };
+
+        window.switchCategory = (cat) => {
+            currentCategory = cat;
+            document.querySelectorAll('.habbo-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderGrid();
+        };
+
+        function renderGrid() {
+            const grid = document.getElementById('wardrobe-grid');
+            grid.innerHTML = '';
+            itemDatabase[currentCategory].forEach(item => {
+                // REGRA: Ocultar VIP na criação
+                if(item.vip) return;
+
+                const card = document.createElement('div');
+                card.className = `item-card ${currentVisual[currentCategory] == item.id ? 'selected' : ''}`;
+                card.innerHTML = `<img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${currentCategory}${item.id}&backgroundColor=transparent" class="w-12 h-12">`;
+                card.onclick = () => {
+                    currentVisual[currentCategory] = item.id;
+                    updatePreview();
+                    renderGrid();
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        function updatePreview() {
+            Object.keys(currentVisual).forEach(cat => {
+                const seed = `${cat}${currentVisual[cat]}`;
+                document.getElementById(`layer-${cat}`).style.backgroundImage = `url('https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=transparent')`;
+            });
+        }
+
+        window.showWardrobe = () => {
+            document.getElementById('wardrobe-overlay').style.display = 'flex';
+            renderGrid();
+            updatePreview();
+        };
+
+        window.hideWardrobe = () => { document.getElementById('wardrobe-overlay').style.display = 'none'; };
+
+        // AUTH & APP
+        window.handleLogin = async () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('pass').value;
+            try {
+                const cred = await signInWithEmailAndPassword(auth, e, p);
+                enterApp(cred.user);
+            } catch (e) { alert("Acesso Negado."); }
+        };
+
+        function enterApp(user) {
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('wardrobe-overlay').style.display = 'none';
+            document.getElementById('app-main').style.display = 'block';
+            document.getElementById('user-display').innerText = user.email.split('@')[0].toUpperCase();
+            
+            const finalSeed = JSON.stringify(currentVisual);
+            const finalUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${finalSeed}&backgroundColor=transparent`;
+            document.getElementById('user-avatar-hud').src = finalUrl;
+            document.getElementById('user-avatar-side').src = finalUrl;
+            
+            if(user.email === MASTER) document.getElementById('admin-pad').classList.remove('hidden');
+        }
+
+        window.finishRegistration = async () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('pass').value;
+            if(!e || p.length < 6) return alert("E-mail válido e Senha 6+ dígitos!");
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, e, p);
+                enterApp(cred.user);
+            } catch (err) { alert("Erro: " + err.message); }
+        };
+
+        const socket = io("https://perfect-sample-br.onrender.com");
+        socket.on('connect', () => { document.getElementById('socket-status').innerText = "ONLINE"; });
+    </script>
+</body>
+</html>
