@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Sample BR — Arena MPC v4.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --bg: #050505; --screen: #0d1b10; }
+        body { background: var(--bg); color: #eee; font-family: 'Space Grotesk', sans-serif; overflow: hidden; }
+        .pixel { font-family: 'Press Start 2P', cursive; }
+
+        /* BACKGROUND DE PARTÍCULAS ANIMADAS */
+        #particle-canvas { position: fixed; inset: 0; z-index: -1; opacity: 0.4; }
+
+        /* LOGOMARCA PSBR NEON */
+        .psbr-logo { width: 120px; height: 120px; filter: drop-shadow(0 0 15px var(--orange)); margin-bottom: 20px; }
+
+        /* TELA DE BOOT / LOGIN */
+        #auth-overlay { 
+            position: fixed; inset: 0; background: radial-gradient(circle at center, #111 0%, #000 100%); 
+            z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column;
+            transition: transform 1s cubic-bezier(0.87, 0, 0.13, 1);
+        }
+        .login-card { 
+            background: rgba(10, 10, 10, 0.9); border: 2px solid rgba(212, 162, 76, 0.2); 
+            padding: 50px; border-radius: 40px; width: 400px; text-align: center;
+            backdrop-filter: blur(10px); box-shadow: 0 0 50px rgba(0,0,0,1);
+        }
+
+        /* INPUTS ESTILIZADOS */
+        .input-psbr {
+            background: #000; border: 1px solid #333; padding: 15px; border-radius: 15px;
+            width: 100%; font-size: 12px; margin-bottom: 15px; outline: none; transition: 0.3s;
+        }
+        .input-psbr:focus { border-color: var(--orange); box-shadow: 0 0 15px rgba(255, 85, 0, 0.2); }
+
+        /* CHASSI MPC (V4.2) */
+        .mpc-chassi {
+            background: linear-gradient(135deg, #2a2a2a 0%, #111 100%);
+            border: 10px solid #222; border-radius: 60px; padding: 40px; position: relative;
+            border-right: 30px solid #1a0f05; box-shadow: 0 60px 100px rgba(0,0,0,0.8);
+        }
+        .lcd-display { background: var(--screen); border: 12px solid #050505; border-radius: 25px; position: relative; overflow: hidden; box-shadow: inset 0 0 80px #000; }
+        .mpc-pad { background: #333; border-bottom: 6px solid #000; border-radius: 15px; height: 100px; cursor: pointer; transition: 0.1s; display: flex; align-items: center; justify-content: center; }
+        .mpc-pad:active { transform: translateY(4px); border-bottom-width: 1px; background: var(--orange); }
+
+        /* ANIMAÇÃO DE ENTRADA */
+        .boot-hidden { transform: translateY(-100%); }
+    </style>
+</head>
+<body>
+
+    <!-- CANVAS DE PARTÍCULAS -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- TELA DE LOGIN (BOOT SYSTEM) -->
+    <div id="auth-overlay">
+        <!-- LOGO PSBR SVG -->
+        <svg class="psbr-logo" viewBox="0 0 100 100">
+            <path d="M20 20 L80 20 L80 80 L20 80 Z" fill="none" stroke="#ff5500" stroke-width="4" />
+            <path d="M30 30 L70 30 L70 70 L30 70 Z" fill="none" stroke="#D4A24C" stroke-width="2" />
+            <text x="50" y="55" font-family="Arial" font-size="12" fill="white" text-anchor="middle" font-weight="bold">PSBR</text>
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#ff5500" stroke-width="0.5" stroke-dasharray="5,5" />
+        </svg>
+
+        <div class="login-card">
+            <h2 class="pixel text-gold text-[10px] mb-8 tracking-widest">INITIALIZING_MPC_v4.2</h2>
+            
+            <input type="email" id="email" placeholder="EMAIL_PRODUTOR" class="input-psbr">
+            <input type="password" id="pass" placeholder="SENHA_ACESSO" class="input-psbr">
+            
+            <button onclick="handleAuth('login')" id="btn-login" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-xs mb-4 shadow-lg shadow-orange-900/20 hover:bg-orange-500 transition-all">CONECTAR AO KERNEL</button>
+            <button onclick="handleAuth('register')" class="text-gray-600 text-[9px] pixel hover:text-white transition-colors">REGISTRAR_NOVA_IDENTIDADE</button>
+        </div>
+        <p class="mt-10 text-[8px] text-gray-700 pixel">PERFECT SAMPLE BR © 2030 // ALL RIGHTS RESERVED</p>
+    </div>
+
+    <!-- SITE PRINCIPAL (HIDDEN) -->
+    <div id="app" class="hidden mpc-chassi w-full max-w-6xl">
+        <!-- (O Chassi MPC v4.1 anterior entra aqui, com o design de patentes e pads) -->
+        <div class="flex justify-between items-center mb-8 bg-black/50 p-6 rounded-[35px] border border-white/5">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-black border-2 border-orange-500/30 rounded-2xl flex items-center justify-center">
+                    <span class="pixel text-gold text-lg" id="user-initial">P</span>
+                </div>
+                <div>
+                    <h2 class="pixel text-[10px] text-orange-500" id="user-display">---</h2>
+                    <span class="text-[9px] text-gray-500 uppercase font-bold tracking-widest">Patente: Legend Producer</span>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="text-right">
+                    <span class="block text-[8px] text-gray-600">BEAT_COINS</span>
+                    <span class="text-gold font-bold text-lg">1,500 BC</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-10">
+            <div class="col-span-8">
+                <div class="lcd-display h-[450px] p-10 font-mono text-emerald-500">
+                    <p class="pixel text-[8px] text-orange-500 mb-6">ARENA_MAIN_FRAME_ACTIVE</p>
+                    <div id="console-log" class="text-xs space-y-2">
+                        <p>> Login bem sucedido.</p>
+                        <p>> Bem-vindo à arena, produtor.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-span-4 bg-black/60 rounded-[40px] border border-white/5 h-[450px] flex items-center justify-center">
+                <div class="text-center">
+                    <div class="w-40 h-40 bg-black rounded-3xl border-2 border-gold/20 mb-4 overflow-hidden relative">
+                         <div id="av-base" class="absolute inset-0 bg-[url('https://api.dicebear.com/7.x/pixel-art/svg?seed=Junior')] bg-contain"></div>
+                    </div>
+                    <span class="pixel text-[8px] text-gold">PREVIEW_MOD</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-6 mt-10">
+            <div class="mpc-pad" onclick="playSound('click')"><span class="pixel text-[10px] text-white">ARENA</span></div>
+            <div class="mpc-pad" onclick="playSound('click')"><span class="pixel text-[10px] text-white">BATTLE_PASS</span></div>
+            <div class="mpc-pad" onclick="playSound('error')"><span class="pixel text-[10px] text-red-600">ANT_CHT</span></div>
+            <div class="mpc-pad border-gold/30"><span class="pixel text-[10px] text-gold">LOJA</span></div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS: AUDIO, PARTICLES & AUTH -->
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // 1. MOTOR DE ÁUDIO SINTÉTICO (Sem arquivos externos!)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        window.playSound = (type) => {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.connect(g); g.connect(audioCtx.destination);
+            
+            if(type === 'boot') {
+                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 1);
+                g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+            } else if(type === 'click') {
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.05);
+            } else if(type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(50, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.2);
+            }
+            osc.start();
+        };
+
+        // 2. MOTOR DE PARTÍCULAS (BACKGROUND)
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let particles = [];
+        for(let i=0; i<50; i++) particles.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, size: Math.random()*2, speed: Math.random()*0.5});
+        function animate() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = '#ff5500';
+            particles.forEach(p => {
+                p.y -= p.speed; if(p.y < 0) p.y = canvas.height;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // 3. LÓGICA DE AUTH
+        window.handleAuth = async (type) => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('pass').value;
+            try {
+                let user;
+                if(type === 'login') {
+                    const cred = await signInWithEmailAndPassword(auth, email, pass);
+                    user = cred.user;
+                } else {
+                    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+                    user = cred.user;
+                }
+                
+                playSound('boot');
+                document.getElementById('auth-overlay').classList.add('boot-hidden');
+                setTimeout(() => {
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    document.getElementById('app').classList.remove('hidden');
+                    document.getElementById('user-display').innerText = user.email.split('@')[0].toUpperCase();
+                    document.getElementById('user-initial').innerText = user.email[0].toUpperCase();
+                }, 1000);
+                
+            } catch (err) {
+                playSound('error');
+                alert("ACESSO_NEGADO: " + err.message);
+            }
+        };
+    </script>
+</body>
+</html>
