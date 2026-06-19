@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+    <title>Perfect Sample BR — SUPREME ARENA v28.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@700&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --bg: #000; --screen-green: #0d1b10; }
+        * { image-rendering: pixelated; font-smooth: never; -webkit-font-smoothing: none; }
+        
+        body { 
+            background: #000; color: #fff; font-family: 'Space Grotesk', sans-serif;
+            margin: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 100vh;
+        }
+
+        #master-viewport {
+            width: 1280px; height: 800px;
+            position: relative; transform-origin: center;
+            display: none; 
+        }
+
+        /* TRANSIÇÃO DE TELA */
+        .fade-in { animation: fadeIn 0.8s forwards; }
+        .fade-out { animation: fadeOut 0.5s forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        .mpc-frame {
+            background: #151515;
+            background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+            border: 6px solid #333; border-radius: 50px;
+            padding: 30px; position: relative; width: 1200px; height: 760px;
+            box-shadow: 0 50px 100px #000, inset 4px 4px 0 #444, inset -4px -4px 0 #000;
+        }
+
+        /* 🟠 NOVO PAINEL LED LARANJA */
+        .led-panel {
+            background: #1a0a00; border-bottom: 3px solid #000;
+            height: 40px; overflow: hidden; position: relative;
+            display: flex; align-items: center;
+        }
+        .marquee {
+            white-space: nowrap; position: absolute;
+            animation: marquee-scroll 10s linear infinite;
+            font-family: 'Press Start 2P'; font-size: 10px;
+            color: var(--orange); text-shadow: 0 0 10px var(--orange);
+        }
+        @keyframes marquee-scroll { 0% { left: 100%; } 100% { left: -100%; } }
+
+        /* 📦 CAIXA DE LOGIN AMPLIADA E MATTE */
+        .auth-station-box {
+            background: #1a1a1a; border: 4px solid var(--orange);
+            box-shadow: inset 4px 4px 0 #333, 10px 10px 0 #000;
+            padding: 40px; width: 420px;
+        }
+
+        .input-matte { 
+            background: #0a0a0a; border: 3px solid #333; padding: 18px; 
+            width: 100%; color: var(--gold); outline: none; font-size: 11px; 
+            border-radius: 4px; transition: 0.2s;
+        }
+        .input-matte:focus { border-color: var(--orange); box-shadow: 0 0 15px rgba(255, 85, 0, 0.2); }
+
+        .btn-trap {
+            background: linear-gradient(to bottom, #fde047 0%, #fde047 50%, #f97316 50%, #f97316 100%);
+            border: 2px solid #000; border-bottom: 8px solid #7c2d12;
+            color: #000; transition: 0.1s;
+        }
+        .btn-trap:active { transform: translateY(4px); border-bottom-width: 2px; }
+
+        .avatar-podium {
+            width: 320px; height: 480px; background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(255,255,255,0.1); border-radius: 20px;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+        .avatar-layer { position: absolute; width: 250px; height: 400px; background-size: contain; background-repeat: no-repeat; bottom: 30px; }
+
+        .mpc-pad {
+            background: linear-gradient(180deg, #2a2a2a 0%, #111 100%);
+            border: 3px solid #333; border-bottom: 10px solid #000; border-radius: 12px;
+            cursor: pointer; display: flex; items-center; justify-content: center;
+            font-family: 'Press Start 2P'; font-size: 7px; color: #555;
+        }
+        .mpc-pad.active { color: #fff; border-color: var(--orange); box-shadow: 0 0 15px var(--orange); }
+
+        .habbo-ui { background: #e1e1e1; border: 3px solid #000; box-shadow: 6px 6px 0 rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+
+    <!-- 1. LOADING -->
+    <div id="loading-screen" class="fixed inset-0 bg-[#050505] z-[9999] flex flex-col items-center justify-center">
+        <img src="logo.png" style="width: 450px;" class="animate-pulse mb-8">
+        <div class="flex gap-1 h-6 w-96 bg-[#111] p-1 border-2 border-[#333]" id="vu-meter"></div>
+    </div>
+
+    <div id="master-viewport">
+        
+        <!-- 2. LOGIN / WARDROBE (ESTADO 1) -->
+        <div id="auth-screen" class="fixed inset-0 z-[5000] bg-black/95 flex items-center justify-center">
+            <div class="habbo-ui w-[1150px] h-[780px] flex flex-col">
+                <div class="led-panel">
+                    <div class="marquee">SEJA BEM VINDO AO PSBR — SEJA BEM VINDO AO PSBR</div>
+                </div>
+                
+                <div class="flex flex-grow p-10 gap-10 overflow-hidden bg-[#e1e1e1]">
+                    <div class="flex flex-col justify-between">
+                        <div class="auth-station-box">
+                            <span class="text-[14px] font-black uppercase mb-6 block text-white tracking-tighter" style="font-family: 'Syncopate';">Contrato_Acesso</span>
+                            
+                            <input type="email" id="u-email" placeholder="EMAIL" class="input-matte mb-4">
+                            <input type="password" id="u-pass" placeholder="CHAVE_DNA" class="input-matte">
+                            
+                            <div id="reg-extra" class="hidden mt-4">
+                                <input type="text" id="u-nick" placeholder="PRODUCER_NAME" class="input-matte">
+                            </div>
+
+                            <button onclick="handleAuth()" id="btn-auth-main" class="btn-trap w-full py-5 font-black text-sm mt-8">CONECTAR</button>
+                        </div>
+                        
+                        <button onclick="toggleRegMode()" id="btn-reg-mode" class="text-[12px] text-orange-600 font-black uppercase underline tracking-tighter mt-4" style="font-family: 'Syncopate';">Novo Produtor?</button>
+                    </div>
+
+                    <div class="flex-grow flex flex-col items-center justify-center bg-[#adadad] border-4 border-white rounded-xl shadow-2xl">
+                        <div class="avatar-podium">
+                            <div id="l-body" class="avatar-layer"></div>
+                            <div id="l-bottoms" class="avatar-layer"></div>
+                            <div id="l-tops" class="avatar-layer"></div>
+                            <div id="l-hair" class="avatar-layer"></div>
+                            <div id="l-acc" class="avatar-layer"></div>
+                        </div>
+                    </div>
+
+                    <div class="w-[350px] flex flex-col bg-gray-200 border-2 border-gray-400 p-4 rounded-xl">
+                        <div id="item-grid" class="grid grid-cols-3 gap-2 overflow-y-auto pr-2 flex-grow bg-white border-2 border-black p-4 shadow-inner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. ARENA PRINCIPAL (ESTADO 2) -->
+        <div id="app" class="mpc-frame hidden">
+            <div class="flex justify-between items-center mb-8 bg-black/90 p-6 border-4 border-black shadow-2xl">
+                <div class="flex items-center gap-8">
+                    <div class="w-20 h-20 bg-black border-4 border-[#333] overflow-hidden flex items-center justify-center">
+                        <img id="hud-av" src="" class="scale-[2] mt-10">
+                    </div>
+                    <div>
+                        <h2 class="text-orange-500 text-[16px] uppercase font-black" id="user-display">---</h2>
+                        <span class="text-emerald-500 text-[8px] pixel animate-pulse">SISTEMA_V28_ACTIVE // LIVE</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-gold text-[22px] block font-black">1.500 BC</span>
+                    <button onclick="handleLogout()" class="text-red-600 text-[8px] underline uppercase font-bold">Disconnect</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-10">
+                <div class="col-span-8">
+                    <div class="bg-[#050a05] border-[15px] border-[#000] h-[460px] p-10 flex flex-col justify-between shadow-2xl">
+                        <div class="h-full flex flex-col justify-between font-mono text-emerald-500">
+                             <div class="flex justify-between border-b border-white/5 pb-2 text-[10px]">
+                                <span>KERNEL_V28.2</span>
+                                <span id="socket-status" class="text-green-500 font-bold">READY</span>
+                             </div>
+                             <div class="flex flex-col items-center">
+                                <h1 class="pixel text-white text-[16px] mb-10 text-center leading-loose">START COMPETITIVE MATCHMAKING?</h1>
+                                <button class="bg-[#003311] border-4 border-emerald-500 px-16 py-8 text-emerald-400 text-[12px] hover:bg-emerald-500 hover:text-black transition-all">INITIALIZE_ARENA</button>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-span-4 bg-black/40 border-4 border-black p-8 flex flex-col items-center justify-between shadow-inner">
+                    <div class="avatar-podium w-full h-64 border-gold/20 overflow-hidden">
+                         <img id="side-av" src="" class="scale-[1.5] mt-20">
+                         <button onclick="document.getElementById('auth-screen').classList.remove('hidden')" class="absolute bottom-4 right-4 bg-gold text-black p-3 text-[12px] font-black border-4 border-black">👕 EDIT</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-8 mt-10">
+                <div class="mpc-pad active aspect-square"><span>ARENA</span></div>
+                <div class="mpc-pad aspect-square"><span>PASS</span></div>
+                <div id="admin-pad" class="mpc-pad hidden aspect-square" onclick="window.location.href='admin.html'"><span class="text-red-500 font-black">ROOT</span></div>
+                <div class="mpc-pad border-gold/40 aspect-square"><span>MARKET</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        let isRegister = false;
+
+        window.onload = () => {
+            const vu = document.getElementById('vu-meter');
+            for(let i=0; i<32; i++) {
+                const s = document.createElement('div');
+                s.className = "flex-1 bg-[#1a1a1a]";
+                vu.appendChild(s);
+            }
+            let p = 0;
+            const interval = setInterval(() => {
+                p++;
+                if(p <= 32) {
+                    const b = vu.children[p-1];
+                    if(p < 20) b.style.backgroundColor = "#00ff66";
+                    else if(p < 28) b.style.backgroundColor = "#ffff00";
+                    else b.style.backgroundColor = "#ff0000";
+                }
+                if(p >= 40) {
+                    clearInterval(interval);
+                    document.getElementById('loading-screen').style.display = 'none';
+                    checkSession();
+                }
+            }, 40);
+        };
+
+        function checkSession() {
+            onAuthStateChanged(auth, (user) => {
+                const vp = document.getElementById('master-viewport');
+                vp.style.display = 'block';
+                if (user) transitionToApp(user);
+                else document.getElementById('auth-screen').classList.remove('hidden');
+            });
+        }
+
+        function transitionToApp(user) {
+            const authScr = document.getElementById('auth-screen');
+            const appScr = document.getElementById('app');
+            
+            authScr.classList.add('fade-out');
+            setTimeout(() => {
+                authScr.classList.add('hidden');
+                appScr.classList.remove('hidden');
+                appScr.classList.add('fade-in');
+                document.getElementById('user-display').innerText = user.email.split('@')[0].toUpperCase();
+                if(user.email === 'eahprovideo1@gmail.com') document.getElementById('admin-pad').classList.remove('hidden');
+            }, 500);
+        }
+
+        window.handleAuth = async () => {
+            const e = document.getElementById('u-email').value;
+            const p = document.getElementById('u-pass').value;
+            try {
+                if(isRegister) await createUserWithEmailAndPassword(auth, e, p);
+                else await signInWithEmailAndPassword(auth, e, p);
+            } catch (err) { alert("ERRO_IDENTIDADE: " + err.message); }
+        };
+
+        window.toggleRegMode = () => {
+            isRegister = !isRegister;
+            document.getElementById('btn-auth-main').innerText = isRegister ? "CADASTRAR" : "CONECTAR";
+            document.getElementById('reg-extra').classList.toggle('hidden', !isRegister);
+        };
+
+        window.handleLogout = () => { if(confirm("Deslogar?")) signOut(auth).then(() => location.reload()); };
+    </script>
+</body>
+</html>
