@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Perfect Sample BR — Arena Pro</title>
+    <link rel="stylesheet" href="mpc-style.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+    <div class="mpc-chassi">
+        <div class="mpc-side-wood"></div>
+
+        <!-- TELA LCD COM GUARDA ROUPA HABBO -->
+        <div class="lcd-screen">
+            <!-- PREVIEW BONECO -->
+            <div class="w-1/3 flex flex-col items-center justify-center bg-black/20 rounded-lg">
+                <div class="relative">
+                    <img id="avatar-preview" src="" style="width: 250px; filter: drop-shadow(0 10px 10px #000);">
+                    <div class="absolute bottom-5 w-32 h-4 bg-black/40 rounded-full blur-md"></div>
+                </div>
+                <div class="mt-4 flex gap-4">
+                    <button class="bg-gray-800 p-2 text-xs" onclick="rotate(-1)">◀</button>
+                    <button class="bg-gray-800 p-2 text-xs" onclick="rotate(1)">▶</button>
+                </div>
+            </div>
+
+            <!-- MENU DE SELEÇÃO (IDENTICO AO LINK) -->
+            <div class="wardrobe-container">
+                <div class="habbo-tabs">
+                    <div class="tab active" onclick="loadCategory('hr')">💇</div>
+                    <div class="tab" onclick="loadCategory('ch')">👕</div>
+                    <div class="tab" onclick="loadCategory('lg')">👖</div>
+                    <div class="tab" onclick="loadCategory('acc')">💎</div>
+                </div>
+                <div id="wardrobe-grid" class="item-grid">
+                    <!-- Gerado pelo Javascript -->
+                </div>
+                <div class="p-4 bg-gray-200 border-t-2 border-black flex justify-between items-center">
+                    <span class="text-[9px]">VISUAL: <span id="look-id">---</span></span>
+                    <button onclick="handleLogin()" class="bg-blue-500 text-white px-4 py-1 text-[10px] border-b-4 border-blue-900">SALVAR E ENTRAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAINEL DE CONTROLE (BOTÕES MPC) -->
+        <div class="flex justify-between items-end">
+            <div class="pads-grid">
+                <div class="pad active"><span>ARENA</span></div>
+                <div class="pad"><span>PASS</span></div>
+                <div class="pad" id="admin-pad"><span>ROOT</span></div>
+                <div class="pad"><span>MARKET</span></div>
+                <!-- Botoes foscos sem uso -->
+                <div class="pad pad-matte"></div><div class="pad pad-matte"></div>
+                <div class="pad pad-matte"></div><div class="pad pad-matte"></div>
+                <div class="pad pad-matte"></div><div class="pad pad-matte"></div>
+                <div class="pad pad-matte"></div><div class="pad pad-matte"></div>
+                <div class="pad pad-matte"></div><div class="pad pad-matte"></div>
+                <div class="pad pad-matte"></div><div class="pad pad-matte"></div>
+            </div>
+
+            <!-- IDENTIDADE LATERAL -->
+            <div class="w-64 mb-5">
+                <div class="bg-black/80 p-4 border-2 border-orange-500 rounded-lg">
+                    <img id="avatar-preview-hud" src="" class="w-32 mx-auto">
+                    <p class="text-orange-500 text-[10px] text-center mt-2" id="user-display">LOGIN_REQUIRED</p>
+                    <div class="w-full h-2 bg-gray-900 mt-2"><div class="h-full bg-blue-500 w-[10%]"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { updateAvatar, setPart, catalog } from './pixel-engine.js';
+        import { auth } from './firebase-config.js';
+
+        // Carregar itens na grade
+        window.loadCategory = (cat) => {
+            const grid = document.getElementById('wardrobe-grid');
+            grid.innerHTML = '';
+            catalog[cat].forEach(id => {
+                const slot = document.createElement('div');
+                slot.className = 'item-slot';
+                slot.innerHTML = `<img src="https://www.habbo.com.br/habbo-imaging/avatarimage?figure=${cat}-${id}&headonly=1&size=m">`;
+                slot.onclick = () => {
+                    setPart(cat, id);
+                    document.getElementById('look-id').innerText = id;
+                };
+                grid.appendChild(slot);
+            });
+        };
+
+        // Inicialização
+        updateAvatar();
+        loadCategory('hr');
+    </script>
+</body>
+</html>
