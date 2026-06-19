@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Sample BR — Arena v9.0 Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;700&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --neon-blue: #00f0ff; --bg: #050505; }
+        body { background: var(--bg); color: #f5f5f5; font-family: 'Space Grotesk', sans-serif; margin: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .pixel { font-family: 'Press Start 2P', cursive; }
+        .display-font { font-family: 'Syncopate', sans-serif; text-transform: uppercase; }
+
+        /* FUNDO LOGO BORRADA */
+        .bg-logo-blur { position: fixed; inset: 0; z-index: -1; background: url('logo.png') center/50% no-repeat; filter: blur(100px) brightness(0.3); animation: moveLogo 25s infinite alternate; }
+        @keyframes moveLogo { from { transform: scale(1) rotate(0); } to { transform: scale(1.3) rotate(5deg); } }
+
+        /* CHASSI MPC INDUSTRIAL */
+        .mpc-chassi {
+            background: linear-gradient(145deg, #2a2a2a 0%, #111 100%);
+            border: 8px solid #222; border-radius: 50px; padding: 40px; position: relative;
+            box-shadow: 0 50px 100px #000, inset 0 2px 5px rgba(255,255,255,0.1);
+            border-right: 30px solid #1a0f05;
+        }
+
+        /* POP-UP INTERNO DO LAYOUT */
+        #psbr-notify {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 5000; width: 380px; background: rgba(15,15,15,0.98); border: 3px solid var(--gold);
+            border-radius: 25px; padding: 30px; text-align: center; backdrop-filter: blur(15px);
+            box-shadow: 0 0 100px #000;
+        }
+
+        /* GUARDA-ROUPA POPUP */
+        .equipment-popup { background: #151515; border: 4px solid #333; border-radius: 30px; padding: 30px; position: relative; }
+        .item-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; height: 320px; overflow-y: auto; }
+        .item-card { background: #000; border: 2px solid #222; border-radius: 10px; aspect-ratio: 1; cursor: pointer; display: flex; items-center; justify-content: center; }
+        .item-card.selected { border-color: var(--neon-blue); box-shadow: 0 0 15px var(--neon-blue); }
+
+        .avatar-layer { position: absolute; width: 180px; height: 180px; background-size: contain; background-repeat: no-repeat; image-rendering: pixelated; }
+
+        .mpc-pad { background: #2a2a2a; border-bottom: 8px solid #000; border-radius: 15px; height: 95px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .mpc-pad:active { transform: translateY(4px); border-bottom-width: 2px; background: var(--orange); }
+
+        #main-wrapper { transform-origin: center; display: flex; align-items: center; justify-content: center; }
+        .slot-btn { background: #111; border: 1px solid #333; color: #555; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        .slot-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 76, 0.1); }
+    </style>
+</head>
+<body>
+
+    <div class="bg-logo-blur"></div>
+
+    <!-- SISTEMA DE NOTIFICAÇÃO (POP-UP REAL) -->
+    <div id="psbr-notify">
+        <div class="pixel text-[9px] text-gold mb-4 uppercase tracking-widest">System_Log</div>
+        <p id="notify-msg" class="text-xs text-white mb-8 font-mono leading-relaxed"></p>
+        <button onclick="closeNotify()" class="w-full bg-gold text-black py-3 rounded-xl font-bold text-[10px] pixel hover:brightness-125 transition-all">CONFIRMAR</button>
+    </div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="auth-overlay" class="fixed inset-0 z-[1000] bg-black flex items-center justify-center">
+        <div class="equipment-popup w-[450px] text-center border-gold/20">
+            <img src="logo.png" class="w-32 mx-auto mb-8 filter drop-shadow-[0_0_15px_#D4A24C]">
+            <div id="login-fields">
+                <span class="pixel text-[8px] text-gold block mb-2 text-left ml-2">ID_PRODUTOR</span>
+                <input type="email" id="email" class="w-full bg-black border border-white/10 p-4 rounded-xl mb-4 text-white outline-none focus:border-gold">
+                <span class="pixel text-[8px] text-gold block mb-2 text-left ml-2">CHAVE_ACESSO</span>
+                <input type="password" id="pass" class="w-full bg-black border border-white/10 p-4 rounded-xl mb-8 text-white outline-none focus:border-gold">
+                <button onclick="handleLogin()" class="w-full bg-orange-600 py-4 rounded-2xl display-font font-bold text-sm hover:bg-orange-500 transition-all shadow-2xl shadow-orange-900/40">CONECTAR</button>
+                <button onclick="showWardrobe()" class="mt-6 text-gold pixel text-[8px] hover:text-white transition-colors uppercase">Cadastre-se</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GUARDA-ROUPA (HABBO STYLE) -->
+    <div id="wardrobe-overlay" class="fixed inset-0 z-[2000] bg-black/95 hidden flex items-center justify-center">
+        <div class="equipment-popup w-[850px]">
+            <div class="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                <h2 class="display-font text-gold text-lg tracking-tighter uppercase">Definir Visual S1</h2>
+                <button onclick="hideWardrobe()" class="text-white pixel text-[10px]">X</button>
+            </div>
+            <div class="flex gap-8">
+                <div class="flex-grow">
+                    <div class="flex mb-4 gap-2">
+                        <button class="bg-[#222] p-3 rounded" onclick="switchCategory('body')">👤</button>
+                        <button class="bg-[#222] p-3 rounded" onclick="switchCategory('hair')">💇</button>
+                        <button class="bg-[#222] p-3 rounded" onclick="switchCategory('tops')">👕</button>
+                        <button class="bg-[#222] p-3 rounded" onclick="switchCategory('bottoms')">👖</button>
+                    </div>
+                    <div id="wardrobe-grid" class="item-grid custom-scrollbar"></div>
+                </div>
+                <div class="w-72 flex flex-col items-center">
+                    <div class="w-full h-80 bg-black rounded-3xl border-2 border-white/5 flex items-center justify-center relative shadow-inner">
+                        <div id="layer-skin" class="avatar-layer"></div>
+                        <div id="layer-hair" class="avatar-layer"></div>
+                        <div id="layer-tops" class="avatar-layer"></div>
+                        <div id="layer-bottoms" class="avatar-layer"></div>
+                    </div>
+                    <button onclick="finishRegistration()" class="w-full mt-6 bg-emerald-600 py-4 rounded-xl display-font text-[10px] text-white">SALVAR NO SLOT 1</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARENA MPC PRINCIPAL -->
+    <div id="main-wrapper">
+        <div id="app-main" class="hidden mpc-chassi w-full max-w-6xl">
+            <div class="flex justify-between items-center mb-10 bg-black/60 p-8 rounded-[40px] border border-white/5 shadow-2xl">
+                <div class="flex items-center gap-6">
+                    <div class="w-20 h-20 bg-black border-2 border-orange-500/20 rounded-full flex items-center justify-center overflow-hidden">
+                        <img id="user-avatar-hud" src="" class="w-full h-full scale-125">
+                    </div>
+                    <div>
+                        <h2 class="display-font text-orange-500 text-lg" id="user-display">---</h2>
+                        <span class="pixel text-[8px] text-emerald-400 tracking-widest animate-pulse">SESSÃO ATIVA</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-gold font-bold text-2xl display-font">1.500 BC</span>
+                    <div class="text-red-500 pixel text-[7px] mt-2 cursor-pointer hover:underline" onclick="handleLogout()">TERMINAR_SESSÃO</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-10">
+                <div class="col-span-8">
+                    <div class="lcd-display h-[480px] p-12">
+                         <div class="h-full flex flex-col justify-between font-mono">
+                            <div class="flex justify-between border-b border-white/5 pb-2 text-[10px] text-emerald-900">
+                                <span>SYSTEM_PRO_V9.0</span>
+                                <span id="socket-status">CONNECTING...</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <h1 class="pixel text-white text-[15px] mb-10 tracking-widest text-center">INITIALIZE COMPETITIVE<br>MATCHMAKING?</h1>
+                                <button onclick="startMatchmaking()" class="px-14 py-6 bg-blue-900/10 border-2 border-neon-blue rounded-[30px] pixel text-[11px] text-neon-blue hover:bg-neon-blue hover:text-black transition-all">START_ARENA</button>
+                            </div>
+                            <div class="text-[9px] opacity-30 text-emerald-500">ROYALTY_CLAIM: 50% RETIDO PELA MARCA</div>
+                         </div>
+                    </div>
+                </div>
+                <!-- SIDEBAR PREVIEW + SLOTS -->
+                <div class="col-span-4 bg-black/40 rounded-[50px] border border-white/5 p-8 flex flex-col items-center">
+                    <div class="w-full h-64 bg-black rounded-3xl border-2 border-gold/10 flex items-center justify-center overflow-hidden relative">
+                        <img id="user-avatar-side" src="" class="w-full h-full scale-125">
+                        <button onclick="showWardrobe()" class="absolute bottom-3 right-3 bg-gold text-black p-2 rounded-lg text-xs">👕</button>
+                    </div>
+                    <div class="w-full mt-6 space-y-4">
+                        <span class="pixel text-[7px] text-gold uppercase block text-center">Visual Memory Slots</span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button class="slot-btn active p-2 pixel text-[8px]" onclick="loadSlot(1)">S1</button>
+                            <button class="slot-btn p-2 pixel text-[8px]" onclick="loadSlot(2)">S2</button>
+                            <button class="slot-btn p-2 pixel text-[8px]" onclick="loadSlot(3)">S3</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-8 mt-14">
+                <div class="mpc-pad"><span class="pixel text-[10px] text-white">ARENA</span></div>
+                <div class="mpc-pad"><span class="pixel text-[10px] text-white">PASS</span></div>
+                <div id="admin-pad" class="mpc-pad hidden" onclick="window.location.href='admin.html'"><span class="pixel text-[10px] text-red-500">ADMIN</span></div>
+                <div class="mpc-pad border-gold/40"><span class="pixel text-[10px] text-gold">LOJA</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const MASTER = "eahprovideo1@gmail.com";
+        let currentVisual = { body: 1, hair: 1, tops: 1, bottoms: 1 };
+        let activeSlot = 1;
+
+        // NOTIFICAÇÃO PERSONALIZADA
+        window.showNotify = (msg) => {
+            document.getElementById('notify-msg').innerText = msg;
+            document.getElementById('psbr-notify').style.display = 'block';
+        };
+        window.closeNotify = () => { document.getElementById('psbr-notify').style.display = 'none'; };
+
+        // GUARDA-ROUPA & SLOTS
+        window.switchCategory = (cat) => { /* Render logic for Habbo Grid */ renderGrid(cat); };
+        
+        window.loadSlot = (num) => {
+            document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            activeSlot = num;
+            showNotify(`Visual Slot ${num} Carregado.`);
+        };
+
+        // AUTH & PERSISTENCE
+        onAuthStateChanged(auth, (user) => {
+            if (user) enterApp(user);
+            else {
+                document.getElementById('app-main').style.display = 'none';
+                document.getElementById('auth-overlay').style.display = 'flex';
+            }
+        });
+
+        window.handleLogin = async () => {
+            try {
+                await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('pass').value);
+            } catch (e) { showNotify("ERRO: Credenciais Inválidas ou inexistentes."); }
+        };
+
+        window.handleLogout = () => {
+            if(confirm("Deseja desconectar sua conta?")) signOut(auth);
+        };
+
+        function enterApp(user) {
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('app-main').style.display = 'block';
+            document.getElementById('user-display').innerText = user.email.split('@')[0].toUpperCase();
+            
+            const seed = JSON.stringify(currentVisual);
+            const url = `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=transparent`;
+            document.getElementById('user-avatar-hud').src = url;
+            document.getElementById('user-avatar-side').src = url;
+            
+            if(user.email === MASTER) document.getElementById('admin-pad').classList.remove('hidden');
+        }
+
+        window.showWardrobe = () => { document.getElementById('wardrobe-overlay').style.display = 'flex'; };
+        window.hideWardrobe = () => { document.getElementById('wardrobe-overlay').style.display = 'none'; };
+
+        const socket = io("https://perfect-sample-br.onrender.com");
+        socket.on('connect', () => { document.getElementById('socket-status').innerText = "ONLINE"; });
+    </script>
+</body>
+</html>
