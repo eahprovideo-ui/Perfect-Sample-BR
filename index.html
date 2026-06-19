@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Perfect Sample BR — THE MACHINE v29.2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@500;700&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --orange: #ff5500;
+        --gold: #D4A24C;
+        --matte: #121212;
+        --green: #00ff66;
+    }
+    * { image-rendering: pixelated; -webkit-user-select: none; user-select: none; box-sizing: border-box; }
+
+    html, body {
+        background: #000;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    .pixel { font-family: 'Press Start 2P', monospace; }
+
+    /* ===================== LOADING SCREEN ===================== */
+    #loading-screen {
+        position: fixed; inset: 0;
+        background: #050505;
+        z-index: 9999;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+    }
+    #loading-screen img { width: 320px; animation: pulse 1.5s ease-in-out infinite; margin-bottom: 32px; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+    #vu-meter { display:flex; gap:2px; height:24px; width:320px; background:#111; padding:4px; border:2px solid #333; }
+    #loading-label { font-family:'Press Start 2P',monospace; color:var(--gold); font-size:8px; margin-top:20px; letter-spacing:2px; }
+
+    /* ===================== LOGIN SCREEN ===================== */
+    #login-screen {
+        position: fixed; inset: 0;
+        background: #111;
+        background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'), radial-gradient(circle at center,#222 0%,#000 100%);
+        z-index: 8000;
+        display: none;
+        align-items: center; justify-content: center;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+    }
+    .login-mpc-frame {
+        background: #151515;
+        border: 6px solid #333;
+        border-radius: 40px;
+        padding: 28px 32px;
+        width: 820px;
+        box-shadow: 0 50px 150px #000, inset 4px 4px 0 #444;
+        position: relative;
+    }
+    /* Cor da faixa LED — âmbar/cobre, como VU meters analógicos */
+    .login-led-panel {
+        background: #1a0a00;
+        border: 2px solid #3a1a00;
+        border-radius: 8px;
+        height: 34px; overflow: hidden; position: relative;
+        display: flex; align-items: center; margin-bottom: 24px;
+    }
+    .login-marquee {
+        white-space: nowrap; position: absolute;
+        animation: marquee-anim 10s linear infinite;
+        font-family: 'Press Start 2P'; font-size: 9px;
+        color: var(--orange); text-shadow: 0 0 10px var(--orange);
+    }
+    @keyframes marquee-anim { 0%{left:100%;} 100%{left:-100%;} }
+
+    .login-body {
+        display: flex; gap: 20px; background: #e1e1e1;
+        border: 3px solid #000; border-radius: 6px;
+        padding: 20px; min-height: 380px;
+    }
+    .login-box {
+        width: 220px; flex-shrink: 0;
+        background: #c8c8c8; border: 2px solid #888;
+        border-radius: 6px; padding: 18px;
+        display: flex; flex-direction: column; gap: 14px;
+    }
+    .login-title {
+        font-family: 'Syncopate', sans-serif;
+        font-size: 13px; font-weight: 700;
+        color: var(--orange); letter-spacing: 1px;
+        text-transform: uppercase; line-height: 1.4;
+    }
+    .login-label {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 8px; color: #555; display: block; margin-bottom: 6px;
+    }
+    .login-input {
+        background: #0a0a0a; border: 2px solid #333;
+        color: var(--gold); padding: 12px 14px; font-size: 11px;
+        width: 100%; outline: none; border-radius: 4px;
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    .login-input:focus { border-color: var(--orange); }
+    .login-input::placeholder { color: #555; }
+    .login-btn {
+        background: linear-gradient(180deg, #fde047 0%, #f97316 100%);
+        border: 0; border-bottom: 5px solid #7c2d12;
+        padding: 14px; font-weight: 900; font-size: 11px;
+        text-transform: uppercase; width: 100%; cursor: pointer;
+        border-radius: 4px; color: #000; letter-spacing: 1px;
+        font-family: 'Space Grotesk', sans-serif;
+        transition: transform 0.1s; margin-top: 4px;
+    }
+    .login-btn:active { transform: translateY(2px); border-bottom-width: 3px; }
+    .login-reg-link {
+        font-family: 'Press Start 2P', monospace; font-size: 7px;
+        color: #666; text-align: center; cursor: pointer;
+        text-decoration: underline; margin-top: auto;
+    }
+    .login-reg-link:hover { color: var(--orange); }
+
+    /* Avatar center no login */
+    .login-avatar-center {
+        flex: 1; background: #adadad; border: 3px solid #fff;
+        border-radius: 6px; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 10px;
+        box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .login-avatar-img { height: 200px; image-rendering: pixelated; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.4)); }
+    .login-rotate-btns { display:flex; gap:8px; }
+    .login-rotate-btns button {
+        background: #888; border: 2px solid #333; padding: 6px 12px;
+        cursor: pointer; font-size: 12px; border-radius: 3px;
+    }
+    .login-rotate-btns button:hover { background: var(--orange); }
+
+    /* Guarda roupa mini no login */
+    .login-wardrobe {
+        width: 240px; flex-shrink: 0;
+        background: #d4d4d4; border: 2px solid #888; border-radius: 6px;
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .login-cat-tabs {
+        display: flex; flex-wrap: wrap; gap: 2px;
+        background: #777; padding: 4px;
+    }
+    .login-cat-tab {
+        font-family: 'Press Start 2P', monospace; font-size: 6px;
+        padding: 5px 4px; background: #c0c0c0; color: #333;
+        border: 2px solid #000; cursor: pointer; border-radius: 2px;
+        white-space: nowrap;
+    }
+    .login-cat-tab.active { background: var(--orange); color: #000; }
+    .login-item-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+        padding: 6px; background: #f0f0f0; flex: 1; overflow-y: auto;
+    }
+    .login-item-card {
+        background: #e8e8e8; border: 2px solid #999; aspect-ratio: 1;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        border-radius: 2px; overflow: hidden;
+    }
+    .login-item-card:hover { border-color: var(--orange); background: #fff; }
+    .login-item-card.selected { border-color: var(--green); }
+    .login-item-card img { width: 90%; height: 90%; object-fit: contain; }
+    .login-save-btn {
+        background: var(--orange); color: #fff; border: 0; padding: 10px;
+        font-family: 'Press Start 2P', monospace; font-size: 7px;
+        cursor: pointer; border-top: 2px solid #000; letter-spacing: 1px;
+    }
+    .login-save-btn:hover { background: #cc4400; }
+
+    /* ===================== TRANSIÇÃO para MPC ===================== */
+    #app-wrapper {
+        opacity: 0;
+        transform: scale(0.85);
+        transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.34,1.56,0.64,1);
+        display: none;
+    }
+    #app-wrapper.visible {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    /* ===================== PAINEL MESTRE MPC ===================== */
+    #mpc-master {
+        width: 1536px;
+        height: 1024px;
+        background-image: url('mpc_bg.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        position: relative;
+        transform-origin: center;
+        flex-shrink: 0;
+    }
+
+    /* VISOR LCD */
+    .visor-area {
+        position: absolute;
+        top: 116px; left: 622px;
+        width: 405px; height: 130px;
+        display: flex; flex-direction: column;
+        overflow: hidden;
+        font-family: 'Press Start 2P', monospace;
+        color: var(--green);
+        text-shadow: 0 0 6px var(--green);
+        font-size: 8px; line-height: 1.6;
+        padding: 4px 6px;
+    }
+    .visor-marquee {
+        white-space: nowrap; position: absolute; bottom: 4px; left: 0;
+        animation: scroll 12s linear infinite;
+        color: var(--green); opacity: 0.85;
+    }
+    @keyframes scroll { from { transform: translateX(100%); } to { transform: translateX(-110%); } }
+
+    /* PADS */
+    .pads-overlay {
+        position: absolute;
+        top: 322px; left: 152px;
+        width: 384px; height: 408px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 9px;
+    }
+    .pad-btn {
+        background: rgba(0,0,0,0.82);
+        border: 1px solid rgba(60,60,60,0.6);
+        cursor: pointer;
+        border-radius: 5px;
+        transition: background 0.12s ease, box-shadow 0.12s ease;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: flex-end;
+        padding-bottom: 5px;
+        position: relative;
+    }
+    .pad-name {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 6px; color: rgba(180,180,180,0.7);
+        text-align: center; line-height: 1.2;
+        pointer-events: none;
+    }
+    .pad-btn:hover {
+        background: rgba(255, 85, 0, 0.22);
+        box-shadow: inset 0 0 12px rgba(255, 85, 0, 0.45);
+    }
+    .pad-btn:active, .pad-btn.pad-lit {
+        background: rgba(255, 85, 0, 0.5);
+        box-shadow: inset 0 0 20px var(--orange);
+    }
+
+    /* SIDEBAR — painel preto à direita */
+    .sidebar-module {
+        position: absolute;
+        top: 18px; left: 1107px;
+        width: 410px; height: 932px;
+        padding: 20px 22px;
+        display: flex; flex-direction: column;
+        background: transparent;
+    }
+
+    .fade-panel { transition: opacity 0.45s ease; }
+    .fade-out { opacity: 0; pointer-events: none; }
+    .fade-in  { opacity: 1; }
+
+    /* HABBO MINI UI */
+    .habbo-mini-ui {
+        background: #adadad; border: 3px solid #000;
+        display: flex; flex-direction: column;
+        flex: 1; min-height: 0;
+        box-shadow: 6px 6px 0 rgba(0,0,0,0.35);
+        overflow: hidden;
+    }
+
+    /* Cor da topbar — cobre/âmbar estilo equipamento de som vintage */
+    .topbar-habbo {
+        background: linear-gradient(90deg, #3a1a00 0%, #5a2a00 50%, #3a1a00 100%);
+        padding: 9px 12px; color: var(--gold);
+        font-size: 8px; display: flex; justify-content: space-between;
+        align-items: center; border-bottom: 2px solid #000; flex-shrink: 0;
+        font-family: 'Press Start 2P', monospace;
+        text-shadow: 0 0 6px rgba(212,162,76,0.5);
+    }
+
+    .avatar-preview-box {
+        background: linear-gradient(180deg, #8a8a8a 0%, #6c6c6c 100%);
+        border-bottom: 3px solid #000;
+        height: 200px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; overflow: hidden;
+    }
+    #avatar-img {
+        height: 100%;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 6px 4px rgba(0,0,0,0.4));
+    }
+    .avatar-shadow {
+        position: absolute; bottom: 10px; width: 80px; height: 8px;
+        background: rgba(0,0,0,0.25); border-radius: 50%; filter: blur(2px);
+    }
+
+    /* TABS DE CATEGORIA */
+    .cat-tabs {
+        display: flex; flex-wrap: wrap; gap: 2px;
+        background: #6b6b6b; padding: 3px; border-bottom: 2px solid #000; flex-shrink: 0;
+    }
+    .cat-tab {
+        font-family: 'Press Start 2P', monospace; font-size: 6px;
+        padding: 5px 5px; background: #d4d4d4; color: #333;
+        border: 2px solid #000; cursor: pointer; border-radius: 2px; white-space: nowrap;
+    }
+    .cat-tab.active { background: var(--orange); color: #000; }
+
+    .item-grid {
+        padding: 6px; flex: 1; min-height: 0; overflow-y: auto;
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+        background: #c2c2c2;
+    }
+    .item-grid::-webkit-scrollbar { width: 6px; }
+    .item-grid::-webkit-scrollbar-thumb { background: #555; }
+
+    .item-card {
+        background: #f1f1f1; border: 2px solid #888;
+        aspect-ratio: 1/1; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; border-radius: 3px; overflow: hidden; transition: 0.1s;
+    }
+    .item-card:hover { border-color: var(--orange); background: #fff; }
+    .item-card.selected { border-color: var(--green); box-shadow: inset 0 0 0 2px var(--green); }
+    .item-card img { width: 85%; height: 85%; object-fit: contain; image-rendering: pixelated; }
+    .item-card .item-label {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        font-size: 5px; text-align: center; background: rgba(0,0,0,0.65);
+        color: #fff; padding: 1px 2px; font-family: 'Press Start 2P', monospace;
+        opacity: 0; transition: 0.15s;
+    }
+    .item-card:hover .item-label { opacity: 1; }
+
+    .wardrobe-actions {
+        display: flex; gap: 0; flex-shrink: 0;
+    }
+    .wardrobe-actions button {
+        flex: 1; padding: 10px 4px;
+        font-family: 'Press Start 2P', monospace; font-size: 6px;
+        border: 0; border-top: 2px solid #000; cursor: pointer;
+        letter-spacing: 0.5px;
+    }
+    .btn-save { background: var(--green); color: #000; }
+    .btn-save:hover { background: #00cc55; }
+    .btn-marketplace { background: var(--orange); color: #fff; }
+    .btn-marketplace:hover { background: #cc4400; }
+    .btn-logout { background: #222; color: #888; }
+    .btn-logout:hover { background: #ff2222; color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- ==================== LOADING SCREEN ==================== -->
+<div id="loading-screen">
+    <img src="logo.png" alt="Perfect Sample BR" onerror="this.style.display='none'; document.getElementById('logo-text').style.display='block'">
+    <div id="logo-text" style="display:none; font-family:'Press Start 2P',monospace; font-size:18px; color:var(--orange); text-shadow:0 0 20px var(--orange); margin-bottom:32px; text-align:center; line-height:1.8;">PERFECT<br>SAMPLE BR</div>
+    <div id="vu-meter"></div>
+    <div id="loading-label">SINTETIZANDO_KERNEL_V29.2</div>
+</div>
+
+<!-- ==================== LOGIN SCREEN ==================== -->
+<div id="login-screen" style="display:none; flex-direction:column; align-items:center; justify-content:center; position:fixed; inset:0; background:#111; background-image:url('https://www.transparenttextures.com/patterns/carbon-fibre.png'),radial-gradient(circle at center,#222 0%,#000 100%); z-index:8000;">
+    <div class="login-mpc-frame">
+        <div class="login-led-panel">
+            <div class="login-marquee">⬛ PERFECT SAMPLE BR — SUPREME ENGINE V29.2 &nbsp;&nbsp;&nbsp; CONECTE SEU CONTRATO PARA ACESSAR A ARENA &nbsp;&nbsp;&nbsp; ⬛</div>
+        </div>
+        <div class="login-body">
+
+            <!-- CAIXA DE LOGIN -->
+            <div class="login-box">
+                <div class="login-title">Contrato_<br>Acesso</div>
+                <div>
+                    <label class="login-label">ENDEREÇO_MAIL</label>
+                    <input type="email" id="u-email" placeholder="email@producer.com" class="login-input">
+                </div>
+                <div>
+                    <label class="login-label">CHAVE_DNA</label>
+                    <input type="password" id="u-pass" placeholder="••••••••" class="login-input">
+                </div>
+                <button onclick="handleAuth()" id="btn-auth" class="login-btn">CONECTAR</button>
+                <button onclick="toggleRegMode()" id="btn-reg-mode" class="login-reg-link">CRIAR NOVO CONTRATO</button>
+            </div>
+
+            <!-- AVATAR CENTER -->
+            <div class="login-avatar-center">
+                <img id="login-avatar" src="" alt="avatar" class="login-avatar-img"
+                    onerror="this.src='https://www.habbo.com.br/habbo-imaging/avatarimage?figure=hd-180-1.ch-215-62.lg-270-92.sh-290-80&size=l&direction=4&gesture=std&action=std'">
+                <div class="login-rotate-btns">
+                    <button onclick="rotateLogin(-1)">◀</button>
+                    <button onclick="rotateLogin(1)">▶</button>
+                </div>
+            </div>
+
+            <!-- GUARDA ROUPA MINI -->
+            <div class="login-wardrobe">
+                <div class="login-cat-tabs" id="login-cat-tabs"></div>
+                <div class="login-item-grid" id="login-item-grid"></div>
+                <button class="login-save-btn" onclick="saveLoginFigure()">💾 SALVAR LOOK</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MPC APP ==================== -->
+<div id="app-wrapper">
+<div id="mpc-master">
+
+    <!-- VISOR LCD -->
+    <div class="visor-area">
+        <div class="mb-1 opacity-50">SISTEMA_V29.2_STABLE</div>
+        <div id="visor-status">FILA: 0/10<br>KERNEL: OK<br>ARENA: READY</div>
+        <div class="visor-marquee">SEJA BEM VINDO AO PERFECT SAMPLE BR — SUPREME ENGINE</div>
+    </div>
+
+    <!-- 16 PADS com nomes e fundo preto -->
+    <div class="pads-overlay" id="pads-overlay"></div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar-module">
+        <!-- GUARDA-ROUPA -->
+        <div id="app-box" class="fade-panel habbo-mini-ui">
+            <div class="topbar-habbo">
+                <span>ID: <span id="user-display">---</span></span>
+                <span>1.500 BC</span>
+            </div>
+
+            <div class="avatar-preview-box">
+                <img id="avatar-img" src="" alt="avatar">
+                <div class="avatar-shadow"></div>
+            </div>
+
+            <div class="cat-tabs" id="cat-tabs"></div>
+            <div class="item-grid" id="item-grid"></div>
+
+            <div class="wardrobe-actions">
+                <button class="btn-save" onclick="saveFigureToStorage()">💾 SALVAR</button>
+                <button class="btn-marketplace" onclick="alert('Loja em breve')">🛒 SHOP</button>
+                <button class="btn-logout" onclick="handleLogout()">⏻ SAIR</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+/* =====================================================================
+   WARDROBE_DATA — guarda-roupa editável
+   ===================================================================== */
+const WARDROBE_DATA = [
+    // ----- CABELO (hr) -----
+    { cat:'hr', figureId:893,  color:'45', nome:'Boné c/ Trança' },
+    { cat:'hr', figureId:828,  color:'61', nome:'Buzz Cut' },
+    { cat:'hr', figureId:3886, color:'31', nome:'Box Braids' },
+    { cat:'hr', figureId:115,  color:'61', nome:'Topete Curto' },
+    { cat:'hr', figureId:891,  color:'21', nome:'Dreads Curtos' },
+    // ----- ROSTO / PELE (hd) -----
+    { cat:'hd', figureId:180, color:'1',  nome:'Pele Clara' },
+    { cat:'hd', figureId:180, color:'3',  nome:'Pele Morena' },
+    { cat:'hd', figureId:600, color:'10', nome:'Rosto Sério' },
+    { cat:'hd', figureId:209, color:'4',  nome:'Pele Negra' },
+    // ----- TRONCO / CAMISAS (ch) -----
+    { cat:'ch', figureId:3030, color:'92', nome:'Regata Trap' },
+    { cat:'ch', figureId:255,  color:'62', nome:'Camisa Oversize' },
+    { cat:'ch', figureId:665,  color:'82', nome:'Jaqueta Street' },
+    { cat:'ch', figureId:3216, color:'110',nome:'Hoodie Preto' },
+    { cat:'ch', figureId:215,  color:'62', nome:'Camiseta Básica' },
+    { cat:'ch', figureId:4191, color:'92', nome:'Colete Tático' },
+    // ----- CASACO / JAQUETA EXTRA (cc) -----
+    { cat:'cc', figureId:3045, color:'82', nome:'Jaqueta Bomber' },
+    { cat:'cc', figureId:550,  color:'61', nome:'Sobretudo' },
+    // ----- PERNAS / CALÇA (lg) -----
+    { cat:'lg', figureId:275,  color:'82', nome:'Calça Cargo' },
+    { cat:'lg', figureId:3116, color:'110',nome:'Moletom Largo' },
+    { cat:'lg', figureId:280,  color:'92', nome:'Jeans Reto' },
+    { cat:'lg', figureId:3206, color:'61', nome:'Calça Jogger' },
+    // ----- SAPATO (sh) -----
+    { cat:'sh', figureId:290,  color:'80', nome:'Tênis Branco' },
+    { cat:'sh', figureId:3115, color:'62', nome:'Bota Street' },
+    { cat:'sh', figureId:905,  color:'92', nome:'Tênis Chunky' },
+    // ----- BONÉ / CHAPÉU (ha) -----
+    { cat:'ha', figureId:1002, color:'61', nome:'Boné Reto' },
+    { cat:'ha', figureId:3318, color:'92', nome:'Touca' },
+    { cat:'ha', figureId:1010, color:'82', nome:'Boné Aba Curva' },
+    // ----- ÓCULOS (ea) -----
+    { cat:'ea', figureId:1402, color:'2',  nome:'Óculos Escuro' },
+    { cat:'ea', figureId:1403, color:'1',  nome:'Lente Colorida' },
+    // ----- CORRENTE / ACESSÓRIO PEITO (ca) -----
+    { cat:'ca', figureId:1813, color:'92', nome:'Corrente Prata' },
+    { cat:'ca', figureId:1814, color:'109',nome:'Corrente Ouro' },
+    // ----- CINTO (wa) -----
+    { cat:'wa', figureId:2005, color:'61', nome:'Cinto Utilitário' }
+];
+
+const CAT_LABELS = {
+    hr:'CABELO', hd:'ROSTO', ch:'TRONCO', cc:'CASACO',
+    lg:'PERNA', sh:'SAPATO', ha:'BONÉ', ea:'ÓCULOS',
+    ca:'CORRENTE', wa:'CINTO'
+};
+
+const PAD_NAMES = [
+    'PAD 13','PAD 14','PAD 15','PAD 16',
+    'PAD 9', 'PAD 10','PAD 11','PAD 12',
+    'PAD 5', 'PAD 6', 'PAD 7', 'PAD 8',
+    'PAD 1', 'PAD 2', 'PAD 3', 'PAD 4'
+];
+
+/* ---------- Figura base do avatar ---------- */
+const DEFAULT_FIGURE = {
+    hr:'893-45', hd:'180-1', ch:'3030-92',
+    lg:'275-82', sh:'290-80', ha:'', ea:'', cc:'', ca:'', wa:''
+};
+
+let figure = Object.assign({}, DEFAULT_FIGURE);
+let activeCat = 'ch';
+let isRegister = false;
+let loginDirection = 4;
+let loginActiveCat = 'ch';
+
+/* ---------- localStorage: salva/carrega figura ---------- */
+const STORAGE_KEY = 'psbr_figure_v1';
+function saveFigureToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(figure));
+        // flash feedback
+        const btn = document.querySelector('.btn-save');
+        if (btn) { btn.textContent = '✅ SALVO'; setTimeout(() => btn.textContent = '💾 SALVAR', 1500); }
+    } catch(e) {}
+}
+function loadFigureFromStorage() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) { figure = Object.assign({}, DEFAULT_FIGURE, JSON.parse(saved)); return true; }
+    } catch(e) {}
+    return false;
+}
+
+/* ---------- Monta o link oficial do Habbo Imager ---------- */
+function buildFigureString() {
+    return Object.entries(figure).filter(([_,v]) => v).map(([k,v]) => `${k}-${v}`).join('.');
+}
+function avatarUrl(figStr, opts='') {
+    return `https://www.habbo.com.br/habbo-imaging/avatarimage?figure=${figStr}&size=l&direction=4&head_direction=4&gesture=std&action=std${opts}`;
+}
+function updateRender() {
+    document.getElementById('avatar-img').src = avatarUrl(buildFigureString());
+}
+
+/* ---------- Tabs e grid do MPC (sidebar) ---------- */
+function renderTabs() {
+    const cats = [...new Set(WARDROBE_DATA.map(i => i.cat))];
+    const wrap = document.getElementById('cat-tabs');
+    wrap.innerHTML = '';
+    cats.forEach(cat => {
+        const b = document.createElement('button');
+        b.className = 'cat-tab' + (cat === activeCat ? ' active' : '');
+        b.innerText = CAT_LABELS[cat] || cat.toUpperCase();
+        b.onclick = () => { activeCat = cat; renderTabs(); renderGrid(); };
+        wrap.appendChild(b);
+    });
+}
+function renderGrid() {
+    const g = document.getElementById('item-grid');
+    g.innerHTML = '';
+    const items = WARDROBE_DATA.filter(i => i.cat === activeCat);
+    const currentVal = figure[activeCat];
+    items.forEach(item => {
+        const itemFig = `${item.figureId}-${item.color}`;
+        const d = document.createElement('div');
+        d.className = 'item-card' + (currentVal === itemFig ? ' selected' : '');
+        const headOnly = (activeCat==='hr'||activeCat==='hd'||activeCat==='ha'||activeCat==='ea') ? 1 : 0;
+        const previewFig = `hd-180-1.${activeCat}-${itemFig}`;
+        const img = document.createElement('img');
+        img.src = avatarUrl(previewFig, `&headonly=${headOnly}`);
+        img.loading = 'lazy';
+        d.appendChild(img);
+        const label = document.createElement('div');
+        label.className = 'item-label';
+        label.innerText = item.nome;
+        d.appendChild(label);
+        d.onclick = () => {
+            figure[activeCat] = (currentVal === itemFig) ? '' : itemFig;
+            updateRender();
+            renderGrid();
+        };
+        g.appendChild(d);
+    });
+}
+
+/* ---------- 16 PADS com nomes e fundo preto ---------- */
+(function buildPads() {
+    const wrap = document.getElementById('pads-overlay');
+    PAD_NAMES.forEach((name, i) => {
+        const pad = document.createElement('div');
+        pad.className = 'pad-btn';
+        pad.dataset.pad = i + 1;
+        const nameEl = document.createElement('div');
+        nameEl.className = 'pad-name';
+        nameEl.innerText = name;
+        pad.appendChild(nameEl);
+        pad.onclick = () => {
+            pad.classList.add('pad-lit');
+            setTimeout(() => pad.classList.remove('pad-lit'), 160);
+        };
+        wrap.appendChild(pad);
+    });
+})();
+
+/* ---------- Login ---------- */
+function renderLoginTabs() {
+    const cats = [...new Set(WARDROBE_DATA.map(i => i.cat))];
+    const wrap = document.getElementById('login-cat-tabs');
+    wrap.innerHTML = '';
+    cats.forEach(cat => {
+        const b = document.createElement('button');
+        b.className = 'login-cat-tab' + (cat === loginActiveCat ? ' active' : '');
+        b.innerText = CAT_LABELS[cat] || cat.toUpperCase();
+        b.onclick = () => { loginActiveCat = cat; renderLoginTabs(); renderLoginGrid(); };
+        wrap.appendChild(b);
+    });
+}
+function renderLoginGrid() {
+    const g = document.getElementById('login-item-grid');
+    g.innerHTML = '';
+    const items = WARDROBE_DATA.filter(i => i.cat === loginActiveCat);
+    const currentVal = figure[loginActiveCat];
+    items.forEach(item => {
+        const itemFig = `${item.figureId}-${item.color}`;
+        const d = document.createElement('div');
+        d.className = 'login-item-card' + (currentVal === itemFig ? ' selected' : '');
+        const headOnly = (loginActiveCat==='hr'||loginActiveCat==='hd'||loginActiveCat==='ha'||loginActiveCat==='ea') ? 1 : 0;
+        const previewFig = `hd-180-1.${loginActiveCat}-${itemFig}`;
+        const img = document.createElement('img');
+        img.src = avatarUrl(previewFig, `&headonly=${headOnly}`);
+        img.loading = 'lazy';
+        d.appendChild(img);
+        d.onclick = () => {
+            figure[loginActiveCat] = (currentVal === itemFig) ? '' : itemFig;
+            updateLoginAvatar();
+            renderLoginGrid();
+        };
+        g.appendChild(d);
+    });
+}
+function updateLoginAvatar() {
+    const figStr = buildFigureString();
+    document.getElementById('login-avatar').src =
+        `https://www.habbo.com.br/habbo-imaging/avatarimage?figure=${figStr}&size=l&direction=${loginDirection}&head_direction=${loginDirection}&gesture=std&action=std`;
+}
+window.rotateLogin = (dir) => {
+    loginDirection = ((loginDirection - 1 + dir + 8) % 8) + 1;
+    if (loginDirection > 7) loginDirection = 1;
+    if (loginDirection < 1) loginDirection = 7;
+    updateLoginAvatar();
+};
+window.saveLoginFigure = () => {
+    saveFigureToStorage();
+    const btn = document.querySelector('.login-save-btn');
+    if (btn) { btn.textContent = '✅ LOOK SALVO!'; setTimeout(() => btn.textContent = '💾 SALVAR LOOK', 1500); }
+};
+window.toggleRegMode = () => {
+    isRegister = !isRegister;
+    document.getElementById('btn-auth').innerText = isRegister ? 'CADASTRAR' : 'CONECTAR';
+    document.getElementById('btn-reg-mode').innerText = isRegister ? 'JÁ TENHO CONTRATO' : 'CRIAR NOVO CONTRATO';
+};
+
+/* ---------- Mostra o app MPC com efeito bounce+fade+zoom ---------- */
+function showApp(userLabel) {
+    const loginScreen = document.getElementById('login-screen');
+    const appWrapper = document.getElementById('app-wrapper');
+
+    loginScreen.style.transition = 'opacity 0.5s ease';
+    loginScreen.style.opacity = '0';
+    setTimeout(() => {
+        loginScreen.style.display = 'none';
+        appWrapper.style.display = 'block';
+        document.getElementById('user-display').innerText = userLabel.toUpperCase();
+        loadFigureFromStorage();
+        renderTabs();
+        renderGrid();
+        updateRender();
+        scaleUI();
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                appWrapper.classList.add('visible');
+            });
+        });
+    }, 500);
+}
+
+/* ---------- Escala o painel inteiro para caber na tela ---------- */
+function scaleUI() {
+    const v = document.getElementById('mpc-master');
+    const s = Math.min(window.innerWidth / 1580, window.innerHeight / 1060);
+    v.style.transform = `scale(${s})`;
+}
+window.addEventListener('resize', scaleUI);
+
+/* =====================================================================
+   LOADING VU METER + SEQUÊNCIA DE TELAS
+   ===================================================================== */
+window.onload = () => {
+    const vu = document.getElementById('vu-meter');
+    for (let i = 0; i < 32; i++) {
+        const s = document.createElement('div');
+        s.style.cssText = 'flex:1; background:#1a1a1a; transition:background 0.05s;';
+        vu.appendChild(s);
+    }
+    let p = 0;
+    const interval = setInterval(() => {
+        p++;
+        if (p <= 32) {
+            const b = vu.children[p - 1];
+            if (p < 20) b.style.backgroundColor = '#00ff66';
+            else if (p < 28) b.style.backgroundColor = '#ffff00';
+            else b.style.backgroundColor = '#ff0000';
+        }
+        if (p >= 40) {
+            clearInterval(interval);
+            // Esconde loading, mostra login com fade
+            const ls = document.getElementById('loading-screen');
+            ls.style.transition = 'opacity 0.6s ease';
+            ls.style.opacity = '0';
+            setTimeout(() => {
+                ls.style.display = 'none';
+                const loginScreen = document.getElementById('login-screen');
+                loginScreen.style.display = 'flex';
+                loginScreen.style.opacity = '0';
+                loadFigureFromStorage();
+                renderLoginTabs();
+                renderLoginGrid();
+                updateLoginAvatar();
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        loginScreen.style.transition = 'opacity 0.6s ease';
+                        loginScreen.style.opacity = '1';
+                    });
+                });
+            }, 600);
+        }
+    }, 40);
+};
+
+/* =====================================================================
+   AUTENTICAÇÃO (Firebase)
+   ===================================================================== */
+let authReady = false;
+import('./firebase-config.js').then(async ({ auth, db }) => {
+    const { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } =
+        await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+
+    authReady = true;
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // Já logado — pula o login e vai direto pro app
+            const ls = document.getElementById('loading-screen');
+            const loginScreen = document.getElementById('login-screen');
+            if (ls) ls.style.display = 'none';
+            if (loginScreen) { loginScreen.style.display = 'none'; loginScreen.style.opacity = '0'; }
+            showApp(user.email.split('@')[0]);
+        }
+    });
+
+    window.handleAuth = async () => {
+        const e = document.getElementById('u-email').value.trim();
+        const p = document.getElementById('u-pass').value;
+        try {
+            if (isRegister) await createUserWithEmailAndPassword(auth, e, p);
+            else await signInWithEmailAndPassword(auth, e, p);
+        } catch (err) { alert("ERRO_IDENTIDADE: " + err.message); }
+    };
+
+    window.handleLogout = () => {
+        if (confirm("Desconectar?")) signOut(auth).then(() => location.reload());
+    };
+
+}).catch(() => {
+    console.warn('firebase-config.js não encontrado — modo preview ativo.');
+});
+
+window.handleAuth = window.handleAuth || function() {
+    // Preview sem firebase: entra direto
+    showApp('PRODUTOR');
+};
+window.handleLogout = window.handleLogout || function() { location.reload(); };
+
+scaleUI();
+</script>
+</body>
+</html>
