@@ -1,0 +1,23 @@
+{
+  "name": "perfect-sample-br-engine",
+  "version": "4.2.0",
+  "description": "Motor de Matchmaking e Real-time para a Arena Perfect Sample BR",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mpc",
+    "beatmaking",
+    "arena",
+    "multiplayer"
+  ],
+  "author": "Junior PSBR",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}
