@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Perfect Sample BR — THE MACHINE v29.2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+<!--
+  =====================================================================
+  GUARDA-ROUPA EDITÁVEL — ÚNICA FONTE DA VERDADE
+  =====================================================================
+  Edite o array WARDROBE lá embaixo (procure por "WARDROBE_DATA") para
+  adicionar ou remover roupas. Formato de cada item:
+
+    { id: 'ch-3030-92', cat: 'ch', figureId: 3030, color: '92', nome: 'Regata Trap' }
+
+  cat       -> categoria do Habbo (hr=cabelo, hd=rosto/pele, ch=tronco,
+               lg=pernas, sh=sapato, ha=chapéu, ea=óculos, cc=casaco,
+               ca=acessório peito, wa=cinto)
+  figureId  -> ID da peça no figuredata oficial do Habbo
+  color     -> ID da cor na paleta do Habbo (paleta 2 p/ hr, paleta 1 p/ hd,
+               paleta 3 p/ as demais — ver gamedata/figuredata/1)
+  nome      -> nome de exibição na grade
+
+  O preview usa o gerador oficial:
+  https://www.habbo.com.br/habbo-imaging/avatarimage?figure=...
+  =====================================================================
+-->
+
+<style>
+    :root {
+        --orange: #ff5500;
+        --gold: #D4A24C;
+        --matte: #121212;
+        --green: #00ff66;
+    }
+    * { image-rendering: pixelated; -webkit-user-select: none; user-select: none; box-sizing: border-box; }
+
+    html, body {
+        background: #000;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    .pixel { font-family: 'Press Start 2P', monospace; }
+
+    /* =====================================================================
+       PAINEL MESTRE — proporção real da imagem fornecida: 1536 x 1024
+       ===================================================================== */
+    #mpc-master {
+        width: 1536px;
+        height: 1024px;
+        background-image: url('mpc_bg.png');
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        position: relative;
+        transform-origin: center;
+        flex-shrink: 0;
+    }
+
+    /* 📟 VISOR LCD — tela verde do MPC60 (coordenadas calibradas na foto) */
+    .visor-area {
+        position: absolute;
+        top: 116px; left: 622px;
+        width: 405px; height: 130px;
+        display: flex; flex-direction: column;
+        overflow: hidden;
+        font-family: 'Press Start 2P', monospace;
+        color: var(--green);
+        text-shadow: 0 0 6px var(--green);
+        font-size: 8px; line-height: 1.6;
+        padding: 4px 6px;
+    }
+    .visor-marquee {
+        white-space: nowrap; position: absolute; bottom: 4px; left: 0;
+        animation: scroll 12s linear infinite;
+        color: var(--green); opacity: 0.85;
+    }
+    @keyframes scroll { from { transform: translateX(100%); } to { transform: translateX(-110%); } }
+
+    /* 🕹️ GRID DE 16 PADS — sobrepostos exatamente aos pads cinza da foto */
+    .pads-overlay {
+        position: absolute;
+        top: 322px; left: 152px;
+        width: 384px; height: 408px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 9px;
+    }
+    .pad-btn {
+        background: rgba(255, 85, 0, 0);
+        border: 1px solid rgba(255,255,255,0);
+        cursor: pointer;
+        border-radius: 6px;
+        transition: background 0.12s ease, box-shadow 0.12s ease;
+    }
+    .pad-btn:hover {
+        background: rgba(255, 85, 0, 0.18);
+        box-shadow: inset 0 0 12px rgba(255, 85, 0, 0.45);
+    }
+    .pad-btn:active {
+        background: rgba(255, 85, 0, 0.5);
+        box-shadow: inset 0 0 20px var(--orange);
+    }
+    .pad-btn.pad-lit {
+        background: rgba(0, 255, 102, 0.12);
+        box-shadow: inset 0 0 10px rgba(0, 255, 102, 0.4);
+    }
+
+    /* 👕 SIDEBAR — painel preto à direita da foto, onde mora login + closet */
+    .sidebar-module {
+        position: absolute;
+        top: 18px; left: 1107px;
+        width: 410px; height: 932px;
+        padding: 34px;
+        display: flex; flex-direction: column;
+        background: transparent;
+    }
+
+    .fade-panel { transition: opacity 0.45s ease; }
+    .fade-out { opacity: 0; pointer-events: none; }
+    .fade-in  { opacity: 1; }
+
+    /* INPUTS ESTILO HARDWARE */
+    .input-hardware {
+        background: #050505; border: 2px solid #262626;
+        color: var(--gold); padding: 13px 14px; font-size: 12px;
+        width: 100%; outline: none; border-radius: 5px;
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    .input-hardware:focus { border-color: var(--orange); }
+    .input-hardware::placeholder { color: #555; }
+
+    /* HABBO MINI UI — closet compacto */
+    .habbo-mini-ui {
+        background: #adadad; border: 3px solid #000;
+        display: flex; flex-direction: column;
+        flex: 1; min-height: 0;
+        box-shadow: 6px 6px 0 rgba(0,0,0,0.35);
+    }
+    .avatar-preview-box {
+        background: linear-gradient(180deg, #8a8a8a 0%, #6c6c6c 100%);
+        border-bottom: 3px solid #000;
+        height: 230px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; overflow: hidden;
+    }
+    #avatar-img {
+        height: 100%;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 6px 4px rgba(0,0,0,0.4));
+    }
+    .avatar-shadow {
+        position: absolute; bottom: 14px; width: 90px; height: 10px;
+        background: rgba(0,0,0,0.25); border-radius: 50%;
+        filter: blur(2px);
+    }
+
+    /* TABS DE CATEGORIA */
+    .cat-tabs {
+        display: flex; flex-wrap: wrap; gap: 2px;
+        background: #6b6b6b; padding: 4px; border-bottom: 3px solid #000;
+        flex-shrink: 0;
+    }
+    .cat-tab {
+        font-family: 'Press Start 2P', monospace; font-size: 7px;
+        padding: 7px 6px; background: #d4d4d4; color: #333;
+        border: 2px solid #000; cursor: pointer; border-radius: 2px;
+        white-space: nowrap;
+    }
+    .cat-tab.active { background: var(--orange); color: #000; }
+
+    .item-grid {
+        padding: 8px; flex: 1; min-height: 0; overflow-y: auto;
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+        background: #c2c2c2;
+    }
+    .item-grid::-webkit-scrollbar { width: 8px; }
+    .item-grid::-webkit-scrollbar-thumb { background: #555; }
+
+    .item-card {
+        background: #f1f1f1; border: 2px solid #888;
+        aspect-ratio: 1/1; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; border-radius: 3px; overflow: hidden;
+        transition: 0.1s;
+    }
+    .item-card:hover { border-color: var(--orange); background: #fff; }
+    .item-card.selected { border-color: var(--green); box-shadow: inset 0 0 0 2px var(--green); }
+    .item-card img { width: 85%; height: 85%; object-fit: contain; image-rendering: pixelated; }
+    .item-card .item-label {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        font-size: 6px; text-align: center; background: rgba(0,0,0,0.65);
+        color: #fff; padding: 1px 2px; font-family: 'Press Start 2P', monospace;
+        opacity: 0; transition: 0.15s;
+    }
+    .item-card:hover .item-label { opacity: 1; }
+
+    .topbar-habbo {
+        background: #004f5d; padding: 10px 12px; color: #fff;
+        font-size: 9px; display: flex; justify-content: space-between;
+        align-items: center; border-bottom: 2px solid #000; flex-shrink: 0;
+        font-family: 'Press Start 2P', monospace;
+    }
+</style>
+</head>
+<body>
+
+<div id="mpc-master">
+
+    <!-- 📟 VISOR LCD -->
+    <div class="visor-area">
+        <div class="mb-1 opacity-50">SISTEMA_V29.2_STABLE</div>
+        <div id="visor-status">FILA: 0/10<br>KERNEL: OK<br>ARENA: READY</div>
+        <div class="visor-marquee">SEJA BEM VINDO AO PERFECT SAMPLE BR — SUPREME ENGINE</div>
+    </div>
+
+    <!-- 🕹️ 16 PADS — apenas feedback visual, não abrem o guarda-roupa -->
+    <div class="pads-overlay" id="pads-overlay"></div>
+
+    <!-- 👕 MÓDULO SIDEBAR -->
+    <div class="sidebar-module">
+
+        <!-- ESTADO: LOGIN -->
+        <div id="auth-box" class="fade-panel fade-in flex flex-col gap-4">
+            <span class="pixel text-[8px] text-orange-500 uppercase tracking-widest mb-4">Contrato_Acesso</span>
+
+            <div>
+                <label class="pixel text-[6px] text-gray-500 block mb-2">ENDEREÇO_MAIL</label>
+                <input type="email" id="u-email" placeholder="email@producer.com" class="input-hardware">
+            </div>
+
+            <div>
+                <label class="pixel text-[6px] text-gray-500 block mb-2">CHAVE_DNA</label>
+                <input type="password" id="u-pass" placeholder="••••••••" class="input-hardware">
+            </div>
+
+            <button onclick="handleAuth()" class="bg-gradient-to-b from-[#fde047] to-[#f97316] border-2 border-black py-4 mt-6 font-black text-[10px] uppercase text-black shadow-lg active:translate-y-1 rounded">Conectar</button>
+
+            <button onclick="toggleRegMode()" id="btn-reg-mode" class="text-[7px] pixel text-gray-600 mt-4 hover:text-white transition-colors">Criar Novo Contrato</button>
+        </div>
+
+        <!-- ESTADO: APP (guarda-roupa) -->
+        <div id="app-box" class="fade-panel hidden habbo-mini-ui">
+            <div class="topbar-habbo">
+                <span>ID: <span id="user-display">---</span></span>
+                <span>1.500 BC</span>
+            </div>
+
+            <div class="avatar-preview-box">
+                <img id="avatar-img" src="" alt="avatar">
+                <div class="avatar-shadow"></div>
+            </div>
+
+            <div class="cat-tabs" id="cat-tabs"></div>
+            <div class="item-grid" id="item-grid"></div>
+
+            <button onclick="alert('Loja em breve')" class="bg-orange-600 text-white py-3 font-bold pixel text-[8px] border-t-2 border-black">ABRIR MARKETPLACE</button>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+/* =====================================================================
+   WARDROBE_DATA — guarda-roupa editável (curadoria trap / street / música)
+   Adicione, edite ou remova qualquer linha abaixo livremente.
+   Categorias: hr (cabelo), hd (rosto), ch (tronco), lg (pernas/calça),
+   sh (sapato), ha (boné/chapéu), ea (óculos), cc (casaco/jaqueta),
+   ca (corrente/acessório peito), wa (cinto)
+   ===================================================================== */
+const WARDROBE_DATA = [
+    // ----- CABELO (hr) -----
+    { cat:'hr', figureId:893,  color:'45', nome:'Boné c/ Trança' },
+    { cat:'hr', figureId:828,  color:'61', nome:'Buzz Cut' },
+    { cat:'hr', figureId:3886, color:'31', nome:'Box Braids' },
+    { cat:'hr', figureId:115,  color:'61', nome:'Topete Curto' },
+    { cat:'hr', figureId:891,  color:'21', nome:'Dreads Curtos' },
+
+    // ----- ROSTO / PELE (hd) -----
+    { cat:'hd', figureId:180, color:'1',  nome:'Pele Clara' },
+    { cat:'hd', figureId:180, color:'3',  nome:'Pele Morena' },
+    { cat:'hd', figureId:600, color:'10', nome:'Rosto Sério' },
+    { cat:'hd', figureId:209, color:'4',  nome:'Pele Negra' },
+
+    // ----- TRONCO / CAMISAS (ch) -----
+    { cat:'ch', figureId:3030, color:'92', nome:'Regata Trap' },
+    { cat:'ch', figureId:255,  color:'62', nome:'Camisa Oversize' },
+    { cat:'ch', figureId:665,  color:'82', nome:'Jaqueta Street' },
+    { cat:'ch', figureId:3216, color:'110',nome:'Hoodie Preto' },
+    { cat:'ch', figureId:215,  color:'62', nome:'Camiseta Básica' },
+    { cat:'ch', figureId:4191, color:'92', nome:'Colete Tático' },
+
+    // ----- CASACO / JAQUETA EXTRA (cc) -----
+    { cat:'cc', figureId:3045, color:'82', nome:'Jaqueta Bomber' },
+    { cat:'cc', figureId:550,  color:'61', nome:'Sobretudo' },
+
+    // ----- PERNAS / CALÇA (lg) -----
+    { cat:'lg', figureId:275,  color:'82', nome:'Calça Cargo' },
+    { cat:'lg', figureId:3116, color:'110',nome:'Moletom Largo' },
+    { cat:'lg', figureId:280,  color:'92', nome:'Jeans Reto' },
+    { cat:'lg', figureId:3206, color:'61', nome:'Calça Jogger' },
+
+    // ----- SAPATO (sh) -----
+    { cat:'sh', figureId:290,  color:'80', nome:'Tênis Branco' },
+    { cat:'sh', figureId:3115, color:'62', nome:'Bota Street' },
+    { cat:'sh', figureId:905,  color:'92', nome:'Tênis Chunky' },
+
+    // ----- BONÉ / CHAPÉU (ha) -----
+    { cat:'ha', figureId:1002, color:'61', nome:'Boné Reto' },
+    { cat:'ha', figureId:3318, color:'92', nome:'Touca' },
+    { cat:'ha', figureId:1010, color:'82', nome:'Boné Aba Curva' },
+
+    // ----- ÓCULOS (ea) -----
+    { cat:'ea', figureId:1402, color:'2',  nome:'Óculos Escuro' },
+    { cat:'ea', figureId:1403, color:'1',  nome:'Lente Colorida' },
+
+    // ----- CORRENTE / ACESSÓRIO PEITO (ca) -----
+    { cat:'ca', figureId:1813, color:'92', nome:'Corrente Prata' },
+    { cat:'ca', figureId:1814, color:'109',nome:'Corrente Ouro' },
+
+    // ----- CINTO (wa) -----
+    { cat:'wa', figureId:2005, color:'61', nome:'Cinto Utilitário' }
+];
+
+const CAT_LABELS = {
+    hr: 'CABELO', hd: 'ROSTO', ch: 'TRONCO', cc: 'CASACO',
+    lg: 'PERNA', sh: 'SAPATO', ha: 'BONÉ', ea: 'ÓCULOS',
+    ca: 'CORRENTE', wa: 'CINTO'
+};
+
+/* Figura base do avatar — ponto de partida antes de qualquer troca */
+let figure = {
+    hr: '893-45', hd: '180-1', ch: '3030-92',
+    lg: '275-82', sh: '290-80', ha: '', ea: '', cc: '', ca: '', wa: ''
+};
+
+let activeCat = 'ch';
+let isRegister = false;
+
+/* ---------- Monta o link oficial do Habbo Imager a partir de `figure` ---------- */
+function buildFigureString() {
+    return Object.entries(figure)
+        .filter(([_, v]) => v)
+        .map(([k, v]) => `${k}-${v}`)
+        .join('.');
+}
+function avatarUrl(figStr, opts = '') {
+    return `https://www.habbo.com.br/habbo-imaging/avatarimage?figure=${figStr}&size=l&direction=4&head_direction=4&gesture=std&action=std${opts}`;
+}
+function updateRender() {
+    document.getElementById('avatar-img').src = avatarUrl(buildFigureString());
+}
+
+/* ---------- Constrói as abas de categoria dinamicamente a partir do WARDROBE_DATA ---------- */
+function renderTabs() {
+    const cats = [...new Set(WARDROBE_DATA.map(i => i.cat))];
+    const wrap = document.getElementById('cat-tabs');
+    wrap.innerHTML = '';
+    cats.forEach(cat => {
+        const b = document.createElement('button');
+        b.className = 'cat-tab' + (cat === activeCat ? ' active' : '');
+        b.innerText = CAT_LABELS[cat] || cat.toUpperCase();
+        b.onclick = () => { activeCat = cat; renderTabs(); renderGrid(); };
+        wrap.appendChild(b);
+    });
+}
+
+/* ---------- Constrói o grid de itens da categoria ativa ---------- */
+function renderGrid() {
+    const g = document.getElementById('item-grid');
+    g.innerHTML = '';
+    const items = WARDROBE_DATA.filter(i => i.cat === activeCat);
+    const currentVal = figure[activeCat];
+
+    items.forEach(item => {
+        const itemFig = `${item.figureId}-${item.color}`;
+        const d = document.createElement('div');
+        d.className = 'item-card' + (currentVal === itemFig ? ' selected' : '');
+
+        const headOnly = (activeCat === 'hr' || activeCat === 'hd' || activeCat === 'ha' || activeCat === 'ea') ? 1 : 0;
+        const previewFig = `hd-180-1.${activeCat}-${itemFig}`;
+        const img = document.createElement('img');
+        img.src = avatarUrl(previewFig, `&headonly=${headOnly}`);
+        img.loading = 'lazy';
+        d.appendChild(img);
+
+        const label = document.createElement('div');
+        label.className = 'item-label';
+        label.innerText = item.nome;
+        d.appendChild(label);
+
+        d.onclick = () => {
+            figure[activeCat] = (currentVal === itemFig) ? '' : itemFig;
+            updateRender();
+            renderGrid();
+        };
+        g.appendChild(d);
+    });
+}
+
+/* ---------- 16 PADS — apenas luz/feedback, sem abrir guarda-roupa ---------- */
+(function buildPads() {
+    const wrap = document.getElementById('pads-overlay');
+    for (let i = 0; i < 16; i++) {
+        const pad = document.createElement('div');
+        pad.className = 'pad-btn';
+        pad.dataset.pad = i + 1;
+        pad.onclick = () => {
+            pad.classList.add('pad-lit');
+            setTimeout(() => pad.classList.remove('pad-lit'), 160);
+        };
+        wrap.appendChild(pad);
+    }
+})();
+
+/* ---------- Transição com fade entre login e guarda-roupa ---------- */
+function showApp(userLabel) {
+    const authBox = document.getElementById('auth-box');
+    const appBox  = document.getElementById('app-box');
+
+    authBox.classList.add('fade-out');
+    setTimeout(() => {
+        authBox.classList.add('hidden');
+        appBox.classList.remove('hidden');
+        document.getElementById('user-display').innerText = userLabel.toUpperCase();
+        renderTabs();
+        renderGrid();
+        updateRender();
+        requestAnimationFrame(() => appBox.classList.add('fade-in'));
+    }, 450);
+}
+
+/* =====================================================================
+   AUTENTICAÇÃO (Firebase) — inalterado na lógica, só plugado ao fade novo
+   ===================================================================== */
+let authReady = false;
+import('./firebase-config.js').then(async ({ auth, db }) => {
+    const { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } =
+        await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+
+    authReady = true;
+    scaleUI();
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) showApp(user.email.split('@')[0]);
+    });
+
+    window.handleAuth = async () => {
+        const e = document.getElementById('u-email').value;
+        const p = document.getElementById('u-pass').value;
+        try {
+            if (isRegister) await createUserWithEmailAndPassword(auth, e, p);
+            else await signInWithEmailAndPassword(auth, e, p);
+        } catch (err) { alert("ERRO_IDENTIDADE: " + err.message); }
+    };
+
+    window.handleLogout = () => {
+        if (confirm("Terminate?")) signOut(auth).then(() => location.reload());
+    };
+}).catch(() => {
+    console.warn('firebase-config.js não encontrado — autenticação desativada nesta visualização.');
+});
+
+window.toggleRegMode = () => {
+    isRegister = !isRegister;
+    document.getElementById('btn-reg-mode').innerText = isRegister ? "JÁ TENHO CONTRATO" : "CRIAR NOVO CONTRATO";
+};
+window.handleAuth = window.handleAuth || function() { alert('Conecte o firebase-config.js para ativar o login.'); };
+window.handleLogout = window.handleLogout || function() { location.reload(); };
+
+/* ---------- Escala o painel inteiro para caber na tela ---------- */
+function scaleUI() {
+    const v = document.getElementById('mpc-master');
+    const s = Math.min(window.innerWidth / 1580, window.innerHeight / 1060);
+    v.style.transform = `scale(${s})`;
+}
+window.addEventListener('resize', scaleUI);
+scaleUI();
+</script>
+</body>
+</html>
