@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Sample BR — Arena MPC v5.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --bg: #111; --screen: #0d1b10; }
+        
+        body { 
+            background: #050505; color: #eee; font-family: 'Space Grotesk', sans-serif; 
+            margin: 0; padding: 0; display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden;
+            background-image: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%);
+        }
+
+        .pixel { font-family: 'Press Start 2P', cursive; }
+
+        /* AJUSTE DE ESCALA AUTOMÁTICO (FIX ZOOM) */
+        #viewport-scaler {
+            transform-origin: center;
+            display: flex; align-items: center; justify-content: center;
+            width: 1280px; height: 800px;
+        }
+
+        /* CHASSI INDUSTRIAL */
+        .mpc-chassi {
+            background: linear-gradient(145deg, #2a2a2a 0%, #0a0a0a 100%);
+            border: 8px solid #222; border-radius: 60px; padding: 40px; position: relative;
+            border-right: 30px solid #1a0f05; box-shadow: 0 50px 100px #000;
+        }
+
+        .lcd-display {
+            background: var(--screen); border: 12px solid #050505; border-radius: 25px;
+            position: relative; overflow: hidden; box-shadow: inset 0 0 80px #000;
+        }
+
+        /* POP-UP PIXELADO */
+        #custom-popup {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 5000; width: 400px; background: rgba(10,10,10,0.98); border: 3px solid var(--gold);
+            border-radius: 20px; padding: 30px; text-align: center; backdrop-filter: blur(15px);
+        }
+
+        /* AUTH OVERLAY */
+        #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .auth-card { background: #111; border: 2px solid #333; padding: 50px; border-radius: 40px; width: 450px; text-align: center; position: relative; }
+
+        .input-psbr { background: #000; border: 1px solid #222; padding: 16px; border-radius: 15px; width: 100%; color: white; font-family: monospace; outline: none; margin-bottom: 15px; transition: 0.3s; }
+        .input-psbr:focus { border-color: var(--gold); }
+
+        .mpc-pad {
+            background: #252525; border-bottom: 6px solid #000; border-radius: 15px; height: 90px; cursor: pointer; transition: 0.1s;
+            display: flex; flex-direction: column; items: center; justify-content: center;
+        }
+        .mpc-pad:active { transform: translateY(4px); border-bottom-width: 1px; background: var(--orange); }
+
+        .screw { width: 12px; height: 12px; background: #333; border-radius: 50%; position: absolute; border: 1px solid #111; }
+    </style>
+</head>
+<body>
+
+    <!-- POP-UP -->
+    <div id="custom-popup">
+        <div class="pixel text-[9px] text-gold mb-4 uppercase tracking-widest">System_Message</div>
+        <p id="popup-msg" class="text-xs text-gray-300 mb-6 font-mono"></p>
+        <button onclick="closePopup()" class="w-full bg-gold text-black py-3 rounded-xl font-bold text-[10px] pixel">ENTENDIDO</button>
+    </div>
+
+    <!-- SISTEMA DE LOGIN / CADASTRO / AVATAR -->
+    <div id="auth-overlay">
+        
+        <!-- TELA 1: LOGIN -->
+        <div id="step-login" class="auth-card">
+            <h2 class="pixel text-orange-500 text-[10px] mb-10">PERFECT SAMPLE BR</h2>
+            <input type="email" id="login-email" placeholder="E-MAIL" class="input-psbr">
+            <div class="relative">
+                <input type="password" id="login-pass" placeholder="SENHA" class="input-psbr">
+                <span onclick="togglePass('login-pass')" class="absolute right-4 top-4 cursor-pointer">👁️</span>
+            </div>
+            <button onclick="handleLogin()" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold mb-4">CONECTAR</button>
+            <button onclick="showStep('register')" class="text-gray-500 text-[9px] pixel hover:text-white uppercase">Criar Nova Conta</button>
+        </div>
+
+        <!-- TELA 2: CADASTRO -->
+        <div id="step-register" class="auth-card hidden">
+            <h2 class="pixel text-gold text-[10px] mb-10">CADASTRO DE PRODUTOR</h2>
+            <input type="email" id="reg-email" placeholder="E-MAIL" class="input-psbr">
+            <input type="password" id="reg-pass" placeholder="SENHA" class="input-psbr">
+            <input type="password" id="reg-pass-confirm" placeholder="CONFIRMAR SENHA" class="input-psbr">
+            <button onclick="handleRegister()" class="w-full bg-gold text-black py-4 rounded-2xl font-bold mb-4">PRÓXIMO: AVATAR</button>
+            <button onclick="showStep('login')" class="text-gray-500 text-[9px] pixel hover:text-white uppercase">Voltar ao Login</button>
+        </div>
+
+        <!-- TELA 3: EDITOR DE AVATAR 3D -->
+        <div id="step-avatar" class="auth-card hidden w-[600px]">
+            <h2 class="pixel text-gold text-[10px] mb-8">PERSONALIZE SUA IDENTIDADE</h2>
+            <div class="flex gap-8 items-center">
+                <div class="w-48 h-48 bg-black border-4 border-gold/20 rounded-[40px] overflow-hidden">
+                    <img id="avatar-preview" src="https://api.dicebear.com/7.x/adventurer/svg?seed=Junior" class="w-full h-full">
+                </div>
+                <div class="flex-grow space-y-4 text-left">
+                    <div>
+                        <label class="text-[10px] text-gray-500 pixel">DNA (SEED)</label>
+                        <input type="text" id="avatar-seed" oninput="updateAvatarPreview()" placeholder="NOME DO AVATAR" class="input-psbr !mb-0">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="randomAvatar()" class="bg-white/5 p-2 rounded-lg text-[8px] pixel hover:bg-white/10">ALEATÓRIO</button>
+                        <button onclick="finishRegistration()" class="bg-emerald-600 p-2 rounded-lg text-[8px] pixel hover:bg-emerald-500">FINALIZAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARENA MPC PRINCIPAL -->
+    <div id="viewport-scaler">
+        <div id="app" class="hidden mpc-chassi w-full max-w-6xl relative">
+            <div class="screw top-8 left-8"></div><div class="screw top-8 right-8"></div>
+            <div class="screw bottom-8 left-8"></div><div class="screw bottom-8 right-8"></div>
+
+            <!-- HUD SUPERIOR -->
+            <div class="flex justify-between items-center mb-10 bg-black/50 p-6 rounded-[35px] border border-white/5">
+                <div class="flex items-center gap-6">
+                    <div class="w-16 h-16 bg-black border-2 border-orange-500/20 rounded-2xl flex items-center justify-center overflow-hidden">
+                        <img id="user-avatar-hud" src="" class="w-12 h-12">
+                    </div>
+                    <div>
+                        <h2 class="pixel text-[12px] text-orange-500" id="user-display">---</h2>
+                        <span class="text-[10px] text-gray-500 uppercase font-bold tracking-[0.2em]">PATENTE: PRODUCER</span>
+                    </div>
+                </div>
+                <div class="flex gap-8">
+                    <div class="text-right border-l border-white/5 pl-8">
+                        <span class="block text-gray-600 uppercase text-[9px] mb-1">Status_Rede</span>
+                        <span class="text-green-500 font-bold text-[11px] pixel" id="socket-status">OFFLINE</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRID CENTRAL -->
+            <div class="grid grid-cols-12 gap-8">
+                <div class="col-span-8">
+                    <div class="lcd-display h-[450px] p-10 font-mono text-emerald-500">
+                        <div id="screen-content" class="h-full flex flex-col justify-between">
+                            <div class="flex justify-between border-b border-emerald-950 pb-3">
+                                <span class="pixel text-[8px] text-gold uppercase">Kernel_v5.0</span>
+                                <span id="queue-status">SESSÃO: OK</span>
+                            </div>
+                            <div class="flex flex-col items-center justify-center flex-grow">
+                                <h2 class="pixel text-[12px] text-white mb-8">INICIAR BUSCA DE ARENA?</h2>
+                                <button onclick="startMatchmaking()" class="px-10 py-5 bg-emerald-900/20 border-2 border-emerald-500 rounded-3xl pixel text-[10px] hover:bg-emerald-500 hover:text-black transition-all">START_MATCHMAKING</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SIDEBAR PERFIL -->
+                <div class="col-span-4 bg-black/60 rounded-[50px] border border-white/5 h-[450px] flex flex-col items-center justify-center p-8">
+                    <div class="w-48 h-48 bg-black rounded-[40px] border-2 border-gold/10 overflow-hidden shadow-inner mb-6">
+                        <img id="user-avatar-side" src="" class="w-full h-full">
+                    </div>
+                    <span class="pixel text-[8px] text-gold uppercase tracking-widest">Identidade_Digital</span>
+                    <div class="mt-6 w-full space-y-2">
+                        <div class="flex justify-between text-[10px] border-b border-white/5 pb-1"><span>BEAT_COINS</span><span class="text-gold">1.500 BC</span></div>
+                        <div class="flex justify-between text-[10px] border-b border-white/5 pb-1"><span>TOKENS</span><span class="text-white">500 BT</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PADS DE COMANDO -->
+            <div class="grid grid-cols-4 gap-6 mt-12">
+                <div class="mpc-pad" onclick="showPopup('Área de Batalha: Aguardando jogadores.')"><span class="pixel text-[10px] text-white">ARENA</span></div>
+                <div class="mpc-pad" onclick="showPopup('Battle Pass: Temporada 1 em Breve!')"><span class="pixel text-[10px] text-white">PASS</span></div>
+                <div class="mpc-pad" onclick="window.location.href='admin.html'"><span class="pixel text-[10px] text-red-600">ADMIN</span></div>
+                <div class="mpc-pad border-gold/30" onclick="showPopup('Mercado: Carregando itens VIP...')"><span class="pixel text-[10px] text-gold">LOJA</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // CONFIGURAÇÕES DE ESCALA (CORRIGE O ZOOM)
+        function scaleUI() {
+            const scaler = document.getElementById('viewport-scaler');
+            const scale = Math.min(window.innerWidth / 1350, window.innerHeight / 900);
+            scaler.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', scaleUI);
+        scaleUI();
+
+        // NAVEGAÇÃO DE AUTH
+        window.showStep = (step) => {
+            document.querySelectorAll('.auth-card').forEach(c => c.classList.add('hidden'));
+            document.getElementById('step-' + step).classList.remove('hidden');
+        };
+
+        // POPUP
+        window.showPopup = (msg) => {
+            document.getElementById('popup-msg').innerText = msg;
+            document.getElementById('custom-popup').style.display = 'block';
+        };
+        window.closePopup = () => { document.getElementById('custom-popup').style.display = 'none'; };
+
+        // EYE TOGGLE
+        window.togglePass = (id) => {
+            const input = document.getElementById(id);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        };
+
+        // AVATAR ENGINE
+        window.updateAvatarPreview = () => {
+            const seed = document.getElementById('avatar-seed').value || 'Junior';
+            const url = `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}`;
+            document.getElementById('avatar-preview').src = url;
+        };
+        window.randomAvatar = () => {
+            document.getElementById('avatar-seed').value = Math.random().toString(36).substring(7);
+            updateAvatarPreview();
+        };
+
+        // AUTH: LOGIN
+        window.handleLogin = async () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            try {
+                const cred = await signInWithEmailAndPassword(auth, email, pass);
+                enterApp(cred.user);
+            } catch (err) {
+                showPopup("ERRO: E-mail ou senha incorretos.");
+            }
+        };
+
+        // AUTH: REGISTER
+        window.handleRegister = async () => {
+            const email = document.getElementById('reg-email').value;
+            const pass = document.getElementById('reg-pass').value;
+            const confirm = document.getElementById('reg-pass-confirm').value;
+
+            if(pass !== confirm) return showPopup("As senhas não coincidem!");
+            if(pass.length < 6) return showPopup("A senha deve ter no mínimo 6 caracteres.");
+
+            showStep('avatar');
+        };
+
+        window.finishRegistration = async () => {
+            const email = document.getElementById('reg-email').value;
+            const pass = document.getElementById('reg-pass').value;
+            const seed = document.getElementById('avatar-seed').value;
+
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, pass);
+                // Salvar Seed no Firebase aqui futuramente
+                enterApp(cred.user, seed);
+            } catch (err) {
+                showPopup("ERRO: " + err.message);
+            }
+        };
+
+        function enterApp(user, seed = "Junior") {
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('app').classList.remove('hidden');
+            document.getElementById('user-display').innerText = user.email.split('@')[0].toUpperCase();
+            
+            const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}`;
+            document.getElementById('user-avatar-hud').src = avatarUrl;
+            document.getElementById('user-avatar-side').src = avatarUrl;
+        }
+
+        // SOCKET.IO
+        const socket = io("https://perfect-sample-br.onrender.com");
+        socket.on('connect', () => {
+            document.getElementById('socket-status').innerText = "ONLINE";
+            document.getElementById('socket-status').className = "text-green-500 font-bold text-[11px] pixel";
+        });
+
+        window.startMatchmaking = () => {
+            socket.emit('join_ranked_queue', { genre: 'TRAP', username: document.getElementById('user-display').innerText });
+            showPopup("Busca Iniciada! Aguardando 10 players...");
+        };
+    </script>
+</body>
+</html>
