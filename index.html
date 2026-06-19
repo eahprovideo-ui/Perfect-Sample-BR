@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Sample BR — Arena v11.0 APEX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --neon-blue: #00f0ff; --bg: #020202; }
+        
+        body { 
+            background: var(--bg); color: #fff; font-family: 'Space Grotesk', sans-serif; 
+            margin: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 100vh;
+        }
+
+        /* TELA DE CARREGAMENTO (LOADING SCREEN) */
+        #loading-screen {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .loading-bar-container { width: 300px; height: 4px; background: #111; border-radius: 10px; margin-top: 20px; overflow: hidden; }
+        .loading-bar-fill { width: 0%; height: 100%; background: var(--gold); transition: width 0.3s; }
+
+        /* LOGO ANIMADA */
+        .logo-intro { width: 250px; opacity: 0; transform: scale(0.5); animation: logoEntry 1s forwards 0.5s, logoFloat 4s infinite ease-in-out 1.5s; }
+        @keyframes logoEntry { to { opacity: 1; transform: scale(1); } }
+        @keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+
+        /* ENGINE BACKGROUND */
+        .engine-bg { position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at center, #111 0%, #000 100%); }
+        .mesh-grid { position: absolute; inset: 0; background-image: linear-gradient(var(--gold) 1px, transparent 1px), linear-gradient(90deg, var(--gold) 1px, transparent 1px); background-size: 50px 50px; opacity: 0.03; transform: perspective(500px) rotateX(60deg); }
+
+        /* CHASSI MPC 3D PBR */
+        .mpc-chassi {
+            background: linear-gradient(145deg, #1f1f1f 0%, #080808 100%);
+            border: 2px solid #333; border-radius: 50px; padding: 35px; position: relative;
+            box-shadow: 0 50px 100px #000, inset 0 2px 10px rgba(255,255,255,0.05);
+            border-right: 20px solid #1a0f05;
+        }
+
+        /* POP-UP INDUSTRIAL (THEMED) */
+        .psbr-modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 5000; background: rgba(10,10,10,0.98); border: 2px solid var(--gold);
+            border-radius: 30px; padding: 40px; backdrop-filter: blur(20px); box-shadow: 0 0 80px #000;
+        }
+
+        /* RP STYLE MENU (FIVE M) */
+        .rp-panel { display: grid; grid-template-columns: 350px 1fr 380px; gap: 20px; width: 1200px; height: 800px; }
+        .rp-column { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 30px; padding: 25px; overflow-y: auto; }
+        
+        .category-item { 
+            padding: 15px; background: #111; border: 1px solid #222; border-radius: 15px; 
+            margin-bottom: 10px; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: 0.2s;
+        }
+        .category-item:hover, .category-item.active { border-color: var(--gold); background: rgba(212, 162, 76, 0.1); }
+        .category-icon { width: 30px; height: 30px; opacity: 0.6; }
+
+        /* PERSONAGEM PEDESTAL 3D */
+        .pedestal-3d {
+            height: 550px; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle, #222 0%, transparent 70%);
+            position: relative; perspective: 1000px;
+        }
+        .avatar-render { width: 450px; transition: transform 0.5s ease; filter: drop-shadow(0 20px 30px #000); }
+
+        /* INPUTS */
+        .input-industrial { background: #000; border: 1px solid #333; padding: 18px; border-radius: 15px; width: 100%; font-size: 13px; color: #fff; outline: none; transition: 0.3s; }
+        .input-industrial:focus { border-color: var(--gold); box-shadow: 0 0 20px rgba(212, 162, 76, 0.1); }
+
+        .pixel { font-family: 'Press Start 2P', cursive; }
+        .bc-anim { animation: coinGlow 2s infinite alternate; color: var(--gold); font-weight: bold; }
+        @keyframes coinGlow { from { text-shadow: 0 0 5px var(--gold); } to { text-shadow: 0 0 20px var(--gold); } }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading-screen">
+        <img src="logo.png" class="logo-intro" id="load-logo">
+        <div class="loading-bar-container"><div class="loading-bar-fill" id="load-bar"></div></div>
+        <p class="pixel text-[7px] text-gray-700 mt-4 tracking-[0.5em]">SYSTEM_INITIALIZING_SAMPLES...</p>
+    </div>
+
+    <div class="engine-bg"><div class="mesh-grid"></div></div>
+
+    <!-- SISTEMA DE ACESSO (LOGIN / CADASTRO / AVATAR) -->
+    <div id="auth-wrap" class="hidden fixed inset-0 z-[1000] bg-black/90 backdrop-blur-md flex items-center justify-center">
+        
+        <!-- TELA DE LOGIN MINIMALISTA -->
+        <div id="auth-login" class="w-[400px] text-center p-10 bg-[#0a0a0a] border border-white/5 rounded-[40px] shadow-2xl">
+            <img src="logo.png" class="w-32 mx-auto mb-10">
+            <h2 class="pixel text-[9px] text-gold mb-8 uppercase">Acesso_Arena</h2>
+            <input type="email" id="l-email" placeholder="EMAIL" class="input-industrial mb-4">
+            <div class="relative mb-8">
+                <input type="password" id="l-pass" placeholder="SENHA" class="input-industrial">
+                <span onclick="togglePass('l-pass')" class="absolute right-5 top-5 cursor-pointer opacity-30 hover:opacity-100">👁️</span>
+            </div>
+            <button onclick="handleLogin()" class="w-full bg-orange-600 py-4 rounded-2xl font-bold mb-4 shadow-xl">CONECTAR</button>
+            <button onclick="switchAuth('register')" class="text-gray-600 text-[9px] pixel uppercase">Cadastre-se</button>
+        </div>
+
+        <!-- TELA DE CADASTRO + AVATAR RP STYLE -->
+        <div id="auth-register" class="hidden rp-panel">
+            <!-- ESQUERDA: DADOS -->
+            <div class="rp-column flex flex-col justify-between">
+                <div>
+                    <h2 class="pixel text-[10px] text-gold mb-10">NOVA_IDENTIDADE</h2>
+                    <input type="text" id="r-nick" placeholder="NOME DO PRODUTOR" class="input-industrial mb-4">
+                    <input type="email" id="r-email" placeholder="E-MAIL" class="input-industrial mb-4">
+                    <div class="relative mb-4">
+                        <input type="password" id="r-pass" placeholder="CRIAR SENHA" class="input-industrial">
+                        <span onclick="togglePass('r-pass')" class="absolute right-5 top-5 cursor-pointer opacity-30">👁️</span>
+                    </div>
+                </div>
+                <div class="bg-black/40 p-6 rounded-2xl border border-white/5">
+                    <span class="pixel text-[7px] text-gray-500 mb-2 block">STATUS_DA_CONTA</span>
+                    <p class="text-xs text-emerald-500 font-bold uppercase">Iniciante: 0 BT // 0 BC</p>
+                </div>
+            </div>
+
+            <!-- MEIO: PERSONAGEM 3D -->
+            <div class="flex flex-col items-center justify-center">
+                <div class="pedestal-3d">
+                    <img id="main-render" src="" class="avatar-render">
+                </div>
+                <div class="flex gap-6 mt-4">
+                    <button onclick="rotate(1)" class="bg-white/5 p-4 rounded-full text-gold">◀</button>
+                    <div class="bg-black/80 px-8 py-2 rounded-full border border-gold/20 pixel text-[8px] text-gold">ROTATE_3D_VIEW</div>
+                    <button onclick="rotate(-1)" class="bg-white/5 p-4 rounded-full text-gold">▶</button>
+                </div>
+                <button onclick="finishReg()" class="mt-10 bg-emerald-600 px-12 py-4 rounded-2xl font-black pixel text-[10px] shadow-[0_0_40px_rgba(16,185,129,0.2)]">FINALIZAR E ENTRAR</button>
+            </div>
+
+            <!-- DIREITA: CATEGORIAS RP -->
+            <div class="rp-column">
+                <h3 class="pixel text-[8px] text-gray-500 mb-6 uppercase">Menu de Vestuário</h3>
+                <div class="space-y-2">
+                    <div class="category-item active" onclick="setCat('body')"><span>👤 CORPO</span><span class="text-[10px] text-gold">#50</span></div>
+                    <div class="category-item" onclick="setCat('hair')"><span>💇 CABELO</span><span class="text-[10px] text-gold">#50</span></div>
+                    <div class="category-item" onclick="setCat('tops')"><span>👕 CAMISETAS</span><span class="text-[10px] text-gold">#50</span></div>
+                    <div class="category-item" onclick="setCat('bottoms')"><span>👖 CALÇAS</span><span class="text-[10px] text-gold">#50</span></div>
+                    <div class="category-item" onclick="setCat('acc')"><span>💎 JOIAS</span><span class="text-[10px] text-gold">#50</span></div>
+                </div>
+                <div id="items-grid" class="grid grid-cols-3 gap-2 mt-8"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP MPC -->
+    <div id="app" class="hidden mpc-chassi w-full max-w-6xl shadow-2xl">
+        <div class="flex justify-between items-center mb-10 bg-black/50 p-8 rounded-[40px] border border-white/5">
+            <div class="flex items-center gap-6">
+                <div class="w-20 h-20 bg-black border-4 border-orange-500/20 rounded-[30px] flex items-center justify-center overflow-hidden">
+                    <img id="hud-avatar" src="" class="w-full h-full scale-150">
+                </div>
+                <div>
+                    <h2 class="text-3xl font-black text-orange-500 uppercase tracking-tighter" id="user-nick">---</h2>
+                    <span class="pixel text-[9px] text-emerald-500 animate-pulse">SYSTEM_ACTIVE // LIVE</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="pixel text-[8px] text-gray-500 block mb-2">SALDO_EM_CONTA</span>
+                <div class="flex gap-4">
+                    <div class="bc-anim text-xl">1.500 <span class="text-[10px]">BC</span></div>
+                    <div class="text-white text-xl">5.000 <span class="text-[10px]">BT</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-10">
+            <div class="col-span-8">
+                <div class="bg-[#050a05] border-[15px] border-[#000] rounded-[30px] h-[500px] p-10 relative overflow-hidden shadow-2xl">
+                    <div class="h-full flex flex-col justify-between font-mono text-emerald-500">
+                        <div class="flex justify-between border-b border-emerald-950 pb-3">
+                            <span class="pixel text-[9px] text-gold uppercase tracking-widest">Master_Kernel_v11</span>
+                            <span id="queue-status" class="pixel text-[9px]">SESSÃO_ATIVA</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <h2 class="pixel text-[15px] text-white mb-10 text-center tracking-widest leading-loose">INITIALIZE MATCHMAKING<br>QUEUE SYSTEM?</h2>
+                            <button class="px-14 py-6 bg-emerald-950/20 border-2 border-emerald-500 rounded-[35px] pixel text-[11px] text-emerald-400 hover:bg-emerald-500 hover:text-black transition-all">START_ARENA</button>
+                        </div>
+                        <div class="text-[9px] opacity-20 text-center uppercase tracking-[0.5em]">Copyright Perfect Sample BR 2030</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SIDEBAR PROFILE -->
+            <div class="col-span-4 bg-black/40 rounded-[60px] border border-white/5 p-8 flex flex-col items-center">
+                <div class="w-full h-72 bg-black rounded-[40px] border-2 border-gold/10 flex items-center justify-center overflow-hidden relative mb-6">
+                    <img id="side-avatar" src="" class="w-full h-full scale-150">
+                    <button onclick="switchAuth('register')" class="absolute bottom-4 right-4 bg-gold text-black p-3 rounded-2xl text-xs shadow-2xl">👕 EDIT</button>
+                </div>
+                <div class="w-full space-y-4">
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="bg-black border border-white/10 p-3 rounded-xl pixel text-[9px] text-gold shadow-lg shadow-gold/10">S1</button>
+                        <button class="bg-black border border-white/10 p-3 rounded-xl pixel text-[9px] text-gray-700">S2</button>
+                        <button class="bg-black border border-white/10 p-3 rounded-xl pixel text-[9px] text-gray-700">S3</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-8 mt-14">
+            <div class="mpc-pad"><span class="pixel text-[10px] text-white">ARENA</span></div>
+            <div class="mpc-pad"><span class="pixel text-[10px] text-white">PASS</span></div>
+            <div class="mpc-pad" id="admin-pad" onclick="window.location.href='admin.html'"><span class="pixel text-[10px] text-red-500">ADMIN</span></div>
+            <div class="mpc-pad border-gold/40" onclick="toggleStore()"><span class="pixel text-[10px] text-gold font-bold">MARKET</span></div>
+        </div>
+    </div>
+
+    <!-- LOJA FIVE M STYLE (MODAL REFORMULADO) -->
+    <div id="store-modal" class="fixed inset-0 z-[6000] bg-black/95 hidden items-center justify-center p-10">
+        <div class="rp-panel">
+            <div class="rp-column">
+                <h2 class="pixel text-[10px] text-gold mb-10">STORE_CATEGORIES</h2>
+                <div class="category-item active"><span>👑 ITENS VIP (BC)</span></div>
+                <div class="category-item"><span>👕 VESTUÁRIO (BT)</span></div>
+                <div class="category-item"><span>🎹 DRUM KITS</span></div>
+                <div class="category-item"><span>⚡ EFEITOS</span></div>
+            </div>
+            <div class="rp-column col-span-2">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="display-font text-2xl font-black">MARKETPLACE <span class="text-gold">PRO</span></h2>
+                    <button onclick="toggleStore()" class="pixel text-[10px] text-red-500">FECHAR [ESC]</button>
+                </div>
+                <div id="store-grid" class="grid grid-cols-3 gap-6"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        let visual = { body: 1, hair: 1, tops: 1, bottoms: 1, acc: 1 };
+        let currentCat = 'body';
+        let rotation = 0;
+
+        // 1. TELA DE CARREGAMENTO (LOADING ENGINE)
+        window.onload = () => {
+            let p = 0;
+            const bar = document.getElementById('load-bar');
+            const interval = setInterval(() => {
+                p += Math.random() * 10;
+                if(p >= 100) {
+                    p = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        document.getElementById('loading-screen').style.display = 'none';
+                        checkSession();
+                    }, 1000);
+                }
+                bar.style.width = p + "%";
+            }, 150);
+        };
+
+        function checkSession() {
+            onAuthStateChanged(auth, (user) => {
+                if (user) enterApp(user, user.email.split('@')[0]);
+                else document.getElementById('auth-wrap').classList.remove('hidden');
+            });
+        }
+
+        // 2. ENGINE AVATAR (HIGH FIDELITY)
+        function updateRender() {
+            const seed = JSON.stringify(visual);
+            const url = `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=transparent&flip=false`;
+            document.getElementById('main-render').src = url;
+            document.getElementById('hud-avatar').src = url;
+            document.getElementById('side-avatar').src = url;
+            document.getElementById('main-render').style.transform = `rotateY(${rotation}deg)`;
+        }
+
+        window.rotate = (dir) => { rotation += dir * 45; updateRender(); };
+
+        window.setCat = (c) => {
+            currentCat = c;
+            document.querySelectorAll('.category-item').forEach(i => i.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            renderItems();
+        };
+
+        function renderItems() {
+            const g = document.getElementById('items-grid');
+            g.innerHTML = '';
+            for(let i=1; i<=20; i++) {
+                const isVip = i > 15;
+                const d = document.createElement('div');
+                d.className = "bg-black border border-white/5 p-2 rounded-xl cursor-pointer hover:border-gold relative overflow-hidden";
+                d.innerHTML = `
+                    ${isVip ? '<span class="absolute top-1 right-1 pixel text-[5px] bg-gold text-black px-1">VIP</span>' : ''}
+                    <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${currentCat}${i}&backgroundColor=transparent" class="w-full">
+                `;
+                d.onclick = () => { visual[currentCat] = i; updateRender(); };
+                g.appendChild(d);
+            }
+        }
+
+        // 3. AUTH & STORE
+        window.switchAuth = (s) => {
+            document.getElementById('auth-login').classList.add('hidden');
+            document.getElementById('auth-register').classList.add('hidden');
+            document.getElementById('auth-' + s).classList.remove('hidden');
+            if(s === 'register') renderItems();
+        };
+
+        window.togglePass = (id) => {
+            const i = document.getElementById(id);
+            i.type = i.type === 'password' ? 'text' : 'password';
+        };
+
+        window.toggleStore = () => {
+            const m = document.getElementById('store-modal');
+            m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+            renderStore();
+        };
+
+        function renderStore() {
+            const g = document.getElementById('store-grid');
+            g.innerHTML = '';
+            const skins = [
+                { name: "Capa Legend V1", price: "500 BC", rarity: "LENDÁRIO" },
+                { name: "Fone Gold Ice", price: "1200 BC", rarity: "EPICO" },
+                { name: "Trapper Mask", price: "300 BT", rarity: "COMUM" }
+            ];
+            skins.forEach(s => {
+                g.innerHTML += `
+                    <div class="bg-black/60 p-6 rounded-[35px] border border-white/10 text-center hover:border-gold transition-all">
+                        <span class="text-[8px] pixel text-gold">${s.rarity}</span>
+                        <div class="w-full h-32 bg-gradient-to-t from-gold/10 to-transparent rounded-3xl my-4"></div>
+                        <h4 class="text-xs font-bold mb-2">${s.name}</h4>
+                        <button class="w-full bg-white/5 py-3 rounded-2xl font-bold text-gold">${s.price}</button>
+                    </div>
+                `;
+            });
+        }
+
+        function enterApp(user, nick) {
+            document.getElementById('auth-wrap').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            document.getElementById('user-nick').innerText = nick.toUpperCase();
+            updateRender();
+        }
+
+        window.finishReg = async () => {
+            const e = document.getElementById('r-email').value;
+            const p = document.getElementById('r-pass').value;
+            const n = document.getElementById('r-nick').value;
+            try {
+                const c = await createUserWithEmailAndPassword(auth, e, p);
+                enterApp(c.user, n);
+            } catch (err) { alert(err.message); }
+        };
+
+        window.handleLogin = async () => {
+            try { await signInWithEmailAndPassword(auth, document.getElementById('l-email').value, document.getElementById('l-pass').value); } 
+            catch (e) { alert("Erro de Login."); }
+        };
+
+        updateRender();
+    </script>
+</body>
+</html>
