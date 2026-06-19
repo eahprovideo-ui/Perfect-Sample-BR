@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Sample BR — Arena MPC v4.8</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --bg: #1a1a1a; --screen: #0d1b10; }
+        
+        /* METAL ESCOVADO REALISTA (CSS) */
+        body { 
+            background: #222;
+            background-image: 
+                linear-gradient(90deg, transparent 50%, rgba(255,255,255,.05) 50%),
+                linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.1) 2px, rgba(0,0,0,.1) 4px);
+            background-size: 4px 100%, auto, 100% 4px;
+            color: #eee; font-family: 'Space Grotesk', sans-serif; overflow: hidden; 
+        }
+
+        .pixel { font-family: 'Press Start 2P', cursive; }
+
+        /* CHASSI MPC INDUSTRIAL */
+        .mpc-chassi {
+            background: linear-gradient(135deg, #333 0%, #111 100%);
+            border: 8px solid #222; border-radius: 40px; padding: 40px; position: relative;
+            border-right: 25px solid #25180a;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.9), inset 0 2px 5px rgba(255,255,255,0.1);
+        }
+
+        /* PARAFUSOS */
+        .screw {
+            width: 12px; height: 12px; background: #444; border-radius: 50%;
+            position: absolute; border: 1px solid #111;
+            box-shadow: inset 0 2px 2px rgba(255,255,255,0.2);
+        }
+        .screw::after { content: ''; position: absolute; top: 50%; left: 10%; width: 80%; height: 1px; background: #111; transform: rotate(45deg); }
+
+        /* TELA CRT */
+        .lcd-display {
+            background: var(--screen); border: 10px solid #050505; border-radius: 15px;
+            position: relative; overflow: hidden; box-shadow: inset 0 0 50px #000;
+        }
+        .lcd-display::after {
+            content: ""; display: block; position: absolute; inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.04));
+            z-index: 10; pointer-events: none; background-size: 100% 3px, 3px 100%;
+        }
+
+        /* POP-UP PIXELADO (THEMED) */
+        #custom-popup {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 2000; width: 320px; background: #0a0a0a; border: 4px solid var(--gold);
+            padding: 20px; text-align: center; box-shadow: 0 0 50px #000;
+        }
+
+        /* BOOT SCREEN */
+        #auth-overlay { position: fixed; inset: 0; background: #111; z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; transition: transform 0.6s cubic-bezier(0.87, 0, 0.13, 1); }
+        .boot-hidden { transform: translateY(-100%); }
+        .login-card { background: rgba(20, 20, 20, 0.95); border: 2px solid #333; padding: 50px; border-radius: 30px; width: 400px; position: relative; }
+
+        .mpc-pad {
+            background: #333; border-bottom: 6px solid #000; border-radius: 12px; height: 90px; cursor: pointer; transition: 0.1s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .mpc-pad:active { transform: translateY(4px); border-bottom-width: 1px; background: var(--orange); }
+    </style>
+</head>
+<body>
+
+    <!-- POP-UP CUSTOMIZADO -->
+    <div id="custom-popup">
+        <div class="pixel text-[8px] text-gold mb-4 uppercase">System_Alert</div>
+        <p id="popup-msg" class="text-xs text-white mb-6 font-mono"></p>
+        <button onclick="closePopup()" class="w-full bg-gold text-black py-2 rounded font-bold text-[10px] pixel">OK</button>
+    </div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="auth-overlay">
+        <div class="login-card">
+            <div class="screw top-4 left-4"></div><div class="screw top-4 right-4"></div>
+            <div class="screw bottom-4 left-4"></div><div class="screw bottom-4 right-4"></div>
+            
+            <h2 class="pixel text-orange-500 text-[10px] mb-10 tracking-tighter">PERFECT SAMPLE BR</h2>
+            
+            <input type="email" id="email" placeholder="EMAIL_PRODUTOR" class="w-full bg-black border border-white/10 p-4 rounded-xl mb-4 text-xs outline-none focus:border-gold text-white font-mono">
+            
+            <div class="relative w-full mb-8">
+                <input type="password" id="pass" placeholder="SENHA_ACESSO" class="w-full bg-black border border-white/10 p-4 rounded-xl text-xs outline-none focus:border-gold text-white font-mono">
+                <div id="toggle-eye" class="absolute right-4 top-4 cursor-pointer opacity-50 text-lg select-none">👁️</div>
+            </div>
+
+            <button id="btn-login" class="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-xs mb-4 shadow-lg shadow-orange-900/40 hover:bg-orange-500 transition-all">CONECTAR</button>
+            <button id="btn-register" class="text-gray-600 text-[8px] pixel hover:text-white transition-colors uppercase">Cadastre-se</button>
+        </div>
+    </div>
+
+    <!-- SITE PRINCIPAL (MPC) -->
+    <div id="app" class="hidden mpc-chassi w-full max-w-6xl shadow-2xl relative mx-auto my-10">
+        <div class="screw top-6 left-6"></div><div class="screw top-6 right-6"></div>
+        <div class="screw bottom-6 left-6"></div><div class="screw bottom-6 right-6"></div>
+
+        <div class="flex justify-between items-center mb-10 bg-black/50 p-6 rounded-[35px] border border-white/5">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-black border-2 border-orange-500/30 rounded-2xl flex items-center justify-center">
+                    <span class="pixel text-gold text-lg" id="user-initial">?</span>
+                </div>
+                <div>
+                    <h2 class="pixel text-[10px] text-orange-500" id="user-display">---</h2>
+                    <span class="text-[9px] text-gray-500 uppercase font-bold tracking-widest">Patente: Legend Producer</span>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="text-right border-l border-white/5 pl-6"><span class="block text-gray-600 uppercase text-[8px]">Arena_Net</span><span class="text-green-500 font-bold text-[10px]" id="socket-status">CONNECTING...</span></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-10">
+            <div class="col-span-8">
+                <div class="lcd-display h-[450px] p-10 font-mono text-emerald-500">
+                    <div class="flex justify-between border-b border-emerald-950 pb-3 uppercase text-[10px]">
+                        <span class="pixel text-[8px] text-gold">Ready_Unit</span>
+                        <span id="queue-status">FILA: 0/10</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center h-full">
+                        <h2 class="pixel text-[10px] mb-8 text-white">INICIAR BUSCA GLOBAL?</h2>
+                        <button id="btn-start-arena" class="px-8 py-4 bg-emerald-900/20 border-2 border-emerald-500 rounded-2xl pixel text-[9px] hover:bg-emerald-500 hover:text-black">START_ARENA</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-span-4 bg-black/60 rounded-[45px] border border-white/5 h-[450px] flex items-center justify-center">
+                <div class="w-40 h-40 bg-black rounded-3xl border-2 border-gold/20 overflow-hidden relative">
+                    <div class="absolute inset-0 bg-[url('https://api.dicebear.com/7.x/pixel-art/svg?seed=Junior')] bg-contain"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-6 mt-12">
+            <div class="mpc-pad" onclick="location.reload()"><span class="pixel text-[10px] text-white">ARENA</span></div>
+            <div class="mpc-pad"><span class="pixel text-[10px] text-white">PASS</span></div>
+            <div class="mpc-pad" onclick="window.location.href='admin.html'"><span class="pixel text-[10px] text-red-600">ADMIN</span></div>
+            <div class="mpc-pad border-gold/30"><span class="pixel text-[10px] text-gold">LOJA</span></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // POP-UP PIXELADO (SUBSTITUI O ALERT)
+        window.showPopup = (msg) => {
+            document.getElementById('popup-msg').innerText = msg;
+            document.getElementById('custom-popup').style.display = 'block';
+        };
+        window.closePopup = () => { document.getElementById('custom-popup').style.display = 'none'; };
+
+        // CONEXÃO RENDER
+        const socket = io("https://perfect-sample-br.onrender.com");
+        socket.on('connect', () => {
+            const st = document.getElementById('socket-status');
+            if(st) { st.innerText = "LIVE_SERVER"; st.className = "text-green-500 font-bold"; }
+        });
+
+        // EYE TOGGLE
+        const eye = document.getElementById('toggle-eye');
+        const pass = document.getElementById('pass');
+        eye.addEventListener('click', () => {
+            const isPass = pass.type === 'password';
+            pass.type = isPass ? 'text' : 'password';
+            eye.innerText = isPass ? '🔒' : '👁️';
+        });
+
+        // AUTH LOGIC
+        async function handleAuth(type) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('pass').value;
+            if(!email || !password) return showPopup("Preencha todos os campos!");
+
+            try {
+                let userCred;
+                if(type === 'login') {
+                    userCred = await signInWithEmailAndPassword(auth, email, password);
+                } else {
+                    userCred = await createUserWithEmailAndPassword(auth, email, password);
+                }
+                window.playSound('boot');
+                document.getElementById('auth-overlay').classList.add('boot-hidden');
+                setTimeout(() => {
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    document.getElementById('app').classList.remove('hidden');
+                    document.getElementById('user-display').innerText = userCred.user.email.split('@')[0].toUpperCase();
+                }, 700);
+            } catch (err) {
+                window.playSound('error');
+                if(err.code === 'auth/configuration-not-found') showPopup("ERRO: Ative o Login por E-mail no Painel do Firebase!");
+                else showPopup("ACESSO_NEGADO: Verifique suas credenciais.");
+            }
+        }
+
+        document.getElementById('btn-login').addEventListener('click', () => handleAuth('login'));
+        document.getElementById('btn-register').addEventListener('click', () => handleAuth('register'));
+
+        // AUDIO ENGINE
+        const aCtx = new (window.AudioContext || window.webkitAudioContext)();
+        window.playSound = (type) => {
+            if (aCtx.state === 'suspended') aCtx.resume();
+            const osc = aCtx.createOscillator();
+            const g = aCtx.createGain();
+            osc.connect(g); g.connect(aCtx.destination);
+            osc.start();
+            if(type === 'boot') { osc.frequency.setValueAtTime(100, aCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(800, aCtx.currentTime + 0.8); osc.stop(aCtx.currentTime + 0.8); }
+            else if(type === 'error') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(60, aCtx.currentTime); osc.stop(aCtx.currentTime + 0.3); }
+        };
+    </script>
+</body>
+</html>
