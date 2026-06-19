@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+    <title>Perfect Sample BR — Arena v16.0 LEGACY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --gold: #D4A24C; --orange: #ff5500; --bg: #000; --mpc-metal: #1a1a1a; }
+        
+        /* MOTOR DE RENDERIZAÇÃO PIXEL ART */
+        * { 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges; 
+            -ms-interpolation-mode: nearest-neighbor;
+        }
+        
+        body { 
+            background: #000; color: #fff; font-family: 'Press Start 2P', cursive; 
+            margin: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 100vh;
+        }
+
+        /* CONTAINER FIXO DE JOGO (16:10) */
+        #game-viewport {
+            width: 1280px; height: 800px;
+            display: none; position: relative;
+            transform-origin: center;
+            background: radial-gradient(circle, #111 0%, #000 100%);
+            border: 2px solid #222;
+        }
+
+        /* CHASSI MPC REALISTA (METAIS E TEXTURAS) */
+        .mpc-frame {
+            background: #1a1a1a;
+            border: 6px solid #333;
+            box-shadow: 15px 15px 0 #000, inset 4px 4px 0 #444, inset -4px -4px 0 #000;
+            padding: 30px; position: relative; width: 1200px; height: 740px;
+            background-image: url('https://www.transparenttextures.com/patterns/brushed-alum.png');
+        }
+        .wood-side { position: absolute; right: -30px; top: 10px; bottom: 10px; width: 30px; background: #2b1a0a; border: 4px solid #000; border-radius: 0 5px 5px 0; }
+
+        /* HABBO UI WINDOWS */
+        .habbo-window {
+            background: #f0f0f0; border: 2px solid #000; border-radius: 5px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.5); color: #000; font-family: 'Space Grotesk', sans-serif;
+        }
+        .habbo-header { background: #004f5d; padding: 6px 12px; color: #fff; display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; }
+        
+        .tab-btn { background: #ccc; border: 1px solid #999; padding: 10px; cursor: pointer; border-bottom: 0; }
+        .tab-btn.active { background: #f0f0f0; border-color: #000; }
+
+        /* AVATAR ISOMÉTRICO FULL BODY (9:16) */
+        .avatar-pedestal {
+            width: 300px; height: 450px; background: #000; border: 4px solid #333;
+            position: relative; display: flex; align-items: center; justify-content: center;
+            box-shadow: inset 0 0 50px #111;
+        }
+        .pixel-layer { 
+            position: absolute; width: 240px; height: 380px; 
+            background-size: contain; background-repeat: no-repeat; 
+            bottom: 40px;
+        }
+        .shadow-floor { position: absolute; bottom: 30px; width: 120px; height: 15px; background: rgba(0,0,0,0.6); border-radius: 50%; filter: blur(5px); }
+
+        /* PADS MPC PROFISSIONAIS */
+        .mpc-pad {
+            background: linear-gradient(180deg, #333 0%, #111 100%);
+            border: 4px solid #444; border-bottom: 10px solid #000;
+            border-radius: 12px; height: 90px; cursor: pointer; transition: 0.05s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff; font-size: 8px; text-shadow: 2px 2px #000;
+        }
+        .mpc-pad:active { transform: translateY(6px); border-bottom-width: 4px; background: var(--orange); }
+
+        /* VU METER PROGRESS */
+        .vu-box { display: flex; gap: 3px; height: 25px; width: 500px; background: #000; padding: 4px; border: 3px solid #333; }
+        .vu-seg { flex: 1; background: #111; }
+        .seg-green { background: #00ff66; box-shadow: 0 0 10px #00ff66; }
+        .seg-yellow { background: #ffff00; }
+        .seg-red { background: #ff0000; }
+
+        .input-pixel { background: #fff; border: 3px solid #000; padding: 12px; width: 100%; color: #000; font-size: 12px; font-weight: bold; outline: none; }
+    </style>
+</head>
+<body>
+
+    <!-- TELA DE LOADING PRO -->
+    <div id="loading-screen" class="fixed inset-0 bg-[#050505] z-[9999] flex flex-col items-center justify-center">
+        <img src="logo.png" style="width: 500px;" class="animate-pulse mb-10">
+        <div class="pixel text-gold text-[10px] mb-6" id="load-msg">CALIBRANDO_HARDWARE...</div>
+        <div class="vu-box" id="vu-meter"></div>
+        <p class="text-gray-800 text-[8px] mt-6 tracking-[1.5em]">AKAI_INDUSTRIAL_LEGACY_READY</p>
+    </div>
+
+    <div id="game-viewport">
+        
+        <!-- LABORATÓRIO DE IDENTIDADE (HABBO v12 STYLE) -->
+        <div id="auth-screen" class="fixed inset-0 z-[5000] bg-black/95 flex items-center justify-center hidden">
+            <div class="habbo-window w-[1150px] h-[780px] flex flex-col">
+                <div class="habbo-header">
+                    <span>Identity Laboratory — Perfect Sample BR</span>
+                    <button onclick="checkSession()">✖</button>
+                </div>
+                
+                <div class="flex flex-grow p-8 gap-10 overflow-hidden">
+                    <!-- COLUNA 1: DADOS -->
+                    <div class="w-80 flex flex-col justify-between">
+                        <div class="bg-gray-300 p-6 border-2 border-gray-500 rounded">
+                            <h3 class="text-xs font-black border-b border-black mb-4">CONTRATO_PRODUTOR</h3>
+                            <input type="email" id="u-email" placeholder="EMAIL" class="input-pixel mb-3">
+                            <input type="password" id="u-pass" placeholder="CHAVE" class="input-pixel mb-3">
+                            <div id="reg-extra" class="hidden">
+                                <input type="text" id="u-nick" placeholder="NICKNAME" class="input-pixel">
+                            </div>
+                            <button onclick="handleAuth()" id="btn-auth-main" class="w-full bg-[#3d9a30] text-white py-4 border-b-8 border-[#1e4e18] font-bold text-sm mt-4">ASSINAR_CONTRATO</button>
+                        </div>
+                        <button onclick="toggleRegMode()" id="btn-reg-mode" class="text-xs text-gray-600 font-bold underline">Não tenho conta</button>
+                    </div>
+
+                    <!-- COLUNA 2: PERSONAGEM 9:16 -->
+                    <div class="flex-grow flex flex-col items-center justify-center">
+                        <div class="avatar-pedestal">
+                            <div class="shadow-floor"></div>
+                            <img id="av-render" src="" class="pixel-layer">
+                        </div>
+                        <div class="flex gap-4 mt-6">
+                            <button class="bg-gray-400 p-4 border-2 border-black" onclick="rotate(-45)">◀</button>
+                            <button class="bg-gray-400 p-4 border-2 border-black" onclick="rotate(45)">▶</button>
+                        </div>
+                    </div>
+
+                    <!-- COLUNA 3: WARDROBE FILTRADO -->
+                    <div class="w-[400px] flex flex-col bg-gray-200 border-2 border-gray-400 p-4">
+                        <div class="flex gap-1 mb-4" id="tabs">
+                            <button class="tab-btn active" onclick="setCat('body')">👤</button>
+                            <button class="tab-btn" onclick="setCat('hair')">💇</button>
+                            <button class="tab-btn" onclick="setCat('tops')">👕</button>
+                            <button class="tab-btn" onclick="setCat('bottoms')">👖</button>
+                            <button class="tab-btn" onclick="setCat('acc')">💎</button>
+                        </div>
+                        <div id="pixel-grid" class="grid grid-cols-3 gap-3 overflow-y-auto pr-2 flex-grow bg-white border-2 border-black p-4 shadow-inner"></div>
+                        <button onclick="finishReg()" class="w-full bg-orange-600 text-white py-4 border-b-8 border-[#803300] font-bold text-sm mt-4">GRAVAR MASTER</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- APP PRINCIPAL (MPC CONSOLE) -->
+        <div id="app" class="mpc-frame hidden">
+            <div class="wood-side"></div>
+            <!-- HUD -->
+            <div class="flex justify-between items-center mb-8 bg-[#111] p-6 border-4 border-black">
+                <div class="flex items-center gap-6">
+                    <div class="w-24 h-24 bg-black border-4 border-[#333] overflow-hidden">
+                        <img id="hud-av" src="" class="w-full h-full scale-150">
+                    </div>
+                    <div>
+                        <h2 class="text-orange-500 text-[16px] mb-2" id="user-display">---</h2>
+                        <span class="text-emerald-500 text-[10px]">LEGENDARY PRODUCER // LIVE</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-10">
+                    <div class="text-right">
+                        <span class="text-gold text-[18px] block">1.500 BC</span>
+                        <button onclick="handleLogout()" class="text-red-600 text-[8px] underline">DISCONNECT</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA LCD CENTRAL -->
+            <div class="grid grid-cols-12 gap-10">
+                <div class="col-span-8">
+                    <div class="lcd-pixel h-[480px] p-10 flex flex-col justify-between">
+                        <div class="flex justify-between border-b border-emerald-900 pb-2 text-[10px] text-emerald-500">
+                            <span>KERNEL_LEGACY_V16</span>
+                            <span id="socket-status" class="animate-pulse">● READY</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <h1 class="text-white text-[14px] mb-12 text-center leading-loose tracking-[0.2em]">INICIAR BUSCA DE ARENA COMPETITIVA?</h1>
+                            <button onclick="alert('Buscando...')" class="bg-[#003311] border-4 border-emerald-500 px-16 py-10 text-emerald-400 text-[12px] hover:bg-emerald-500 hover:text-black transition-all">START_QUEUE</button>
+                        </div>
+                        <p class="text-[8px] text-emerald-900 text-center uppercase tracking-[0.3em]">Hardware Emulation by PSBR Professional</p>
+                    </div>
+                </div>
+
+                <!-- SIDEBAR MEMORY SLOTS -->
+                <div class="col-span-4 bg-black/40 border-4 border-black p-8 flex flex-col items-center justify-between">
+                    <div class="avatar-pedestal w-full h-64 border-gold/10">
+                        <img id="side-av" src="" class="scale-75">
+                        <button onclick="openWardrobe()" class="absolute bottom-4 right-4 bg-gold text-black p-2 text-[10px] font-black border-2 border-black shadow-xl">👕 EDIT</button>
+                    </div>
+                    <div class="w-full mt-6 space-y-4">
+                        <span class="text-[8px] text-gold text-center block uppercase">Memory Visual Slots</span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button class="bg-black border-2 border-gold p-3 text-gold text-[10px]">S1</button>
+                            <button class="bg-black border-2 border-gray-800 p-3 text-gray-800 text-[10px]">S2</button>
+                            <button class="bg-black border-2 border-gray-800 p-3 text-gray-800 text-[10px]">S3</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PADS DE COMANDO (REPOSICIONADOS) -->
+            <div class="grid grid-cols-4 gap-10 mt-14">
+                <div class="mpc-pad"><span>ARENA_LIVE</span></div>
+                <div class="mpc-pad"><span>BATTLE_PASS</span></div>
+                <div id="admin-pad" class="mpc-pad hidden" onclick="window.location.href='admin.html'"><span class="text-red-500 font-bold">ADMIN_ROOT</span></div>
+                <div class="mpc-pad border-gold/40" onclick="toggleStore()"><span class="text-gold font-bold">MARKETPLACE</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MARKETPLACE RP STYLE -->
+    <div id="store-overlay" class="fixed inset-0 z-[6000] bg-black/98 hidden items-center justify-center p-12">
+        <div class="mpc-frame w-[1100px] h-[700px] flex flex-col">
+            <div class="flex justify-between items-center border-b-4 border-black pb-4 mb-6">
+                <h2 class="text-gold text-[14px] uppercase tracking-widest">Marketplace_Legacy_PRO</h2>
+                <button onclick="toggleStore()" class="text-red-600 text-[12px]">CANCEL [X]</button>
+            </div>
+            <div class="flex gap-8 flex-grow overflow-hidden">
+                <div class="w-72 space-y-4">
+                    <button class="w-full text-left p-6 bg-gold text-black text-[10px] font-black border-4 border-black">💎 PREMIUM_BC</button>
+                    <button class="w-full text-left p-6 bg-[#222] text-gray-600 text-[10px] border-4 border-black">👕 VESTUÁRIO_BT</button>
+                    <button class="w-full text-left p-6 bg-[#222] text-gray-600 text-[10px] border-4 border-black">🎹 DRUM_KITS</button>
+                </div>
+                <div class="flex-grow grid grid-cols-3 gap-6 overflow-y-auto pr-4" id="store-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        let visual = { body: 1, hair: 1, tops: 1, bottoms: 1, acc: 1 };
+        let currentCat = 'body';
+        let isRegister = false;
+
+        // 1. ENGINE DE CARREGAMENTO VU-METER
+        window.onload = () => {
+            const vu = document.getElementById('vu-meter');
+            for(let i=0; i<30; i++) {
+                const s = document.createElement('div');
+                s.className = "vu-seg";
+                vu.appendChild(s);
+            }
+            let p = 0;
+            const segments = vu.children;
+            const interval = setInterval(() => {
+                p++;
+                if(p <= segments.length) {
+                    const s = segments[p-1];
+                    if(p < 18) s.className = "vu-seg seg-green";
+                    else if(p < 26) s.className = "vu-seg seg-yellow";
+                    else s.className = "vu-seg seg-red";
+                }
+                if(p >= segments.length + 10) {
+                    clearInterval(interval);
+                    document.getElementById('loading-screen').style.display = 'none';
+                    checkSession();
+                }
+            }, 80);
+        };
+
+        // 2. ENGINE AVATAR 9:16 PIXEL ART
+        function updateRender() {
+            const seed = JSON.stringify(visual);
+            // Dicebear 'adventurer' forçado para pixelated em 9:16
+            const url = `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=transparent`;
+            document.getElementById('av-render').src = url;
+            document.getElementById('hud-av').src = url;
+            document.getElementById('side-av').src = url;
+        }
+
+        window.setCat = (c) => { 
+            currentCat = c; 
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderItems(); 
+        };
+
+        function renderItems() {
+            const g = document.getElementById('pixel-grid'); g.innerHTML = '';
+            for(let i=1; i<=30; i++) {
+                // Filtro VIP (itens > 25 não aparecem na criação)
+                if(i > 25) continue;
+                const d = document.createElement('div');
+                d.className = "bg-white border-4 border-black p-2 cursor-pointer hover:bg-gold/20 aspect-square";
+                d.innerHTML = `<img src="https://api.dicebear.com/7.x/adventurer/svg?seed=${currentCat}${i}&backgroundColor=transparent">`;
+                d.onclick = () => { visual[currentCat] = i; updateRender(); };
+                g.appendChild(d);
+            }
+        }
+
+        // 3. AUTH & SCALE LOGIC
+        function checkSession() {
+            onAuthStateChanged(auth, (user) => {
+                document.getElementById('game-viewport').style.display = 'flex';
+                scaleUI();
+                if (user) {
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('app').classList.remove('hidden');
+                    document.getElementById('user-display').innerText = user.email.split('@')[0].toUpperCase();
+                    if(user.email === 'eahprovideo1@gmail.com') document.getElementById('admin-pad').classList.remove('hidden');
+                    updateRender();
+                } else {
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                    renderItems(); updateRender();
+                }
+            });
+        }
+
+        window.handleAuth = async () => {
+            const e = document.getElementById('u-email').value;
+            const p = document.getElementById('u-pass').value;
+            try {
+                if(isRegister) await createUserWithEmailAndPassword(auth, e, p);
+                else await signInWithEmailAndPassword(auth, e, p);
+            } catch (err) { alert("ERRO_IDENTIDADE: " + err.message); }
+        };
+
+        window.toggleRegMode = () => {
+            isRegister = !isRegister;
+            document.getElementById('reg-extra').classList.toggle('hidden', !isRegister);
+            document.getElementById('btn-auth-main').innerText = isRegister ? "CADASTRAR" : "CONECTAR";
+        };
+
+        window.handleLogout = () => { if(confirm("Deseja deslogar?")) signOut(auth).then(() => location.reload()); };
+
+        window.toggleStore = () => {
+            const s = document.getElementById('store-overlay');
+            const isVisible = s.style.display === 'flex';
+            s.style.display = isVisible ? 'none' : 'flex';
+            if(!isVisible) populateStore();
+        };
+
+        function populateStore() {
+            const g = document.getElementById('store-grid'); g.innerHTML = '';
+            const items = [
+                { name: "ICE CHAIN V1", price: "500 BC", rarity: "LENDARIO" },
+                { name: "TECH MASK", price: "250 BC", rarity: "EPICO" },
+                { name: "BAGGY PANTS", price: "50 BT", rarity: "COMUM" }
+            ];
+            items.forEach(it => {
+                g.innerHTML += `
+                    <div class="bg-[#111] p-6 border-8 border-black text-center hover:border-gold">
+                        <span class="text-[8px] text-gold pixel">${it.rarity}</span>
+                        <div class="w-full h-40 bg-black my-4 border-4 border-white/5"></div>
+                        <h3 class="text-[10px] mb-4">${it.name}</h3>
+                        <button class="w-full bg-gold text-black py-4 font-black text-[10px] border-b-8 border-[#803300]">${it.price}</button>
+                    </div>
+                `;
+            });
+        }
+
+        function scaleUI() {
+            const v = document.getElementById('game-viewport');
+            const s = Math.min(window.innerWidth / 1300, window.innerHeight / 850);
+            v.style.transform = `scale(${s})`;
+        }
+        window.addEventListener('resize', scaleUI);
+    </script>
+</body>
+</html>
