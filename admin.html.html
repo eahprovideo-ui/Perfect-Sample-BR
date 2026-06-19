@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>PSbr — Painel Root v4.4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background: #0a0a0a; 
+            background-image: url('https://www.transparenttextures.com/patterns/black-metal.png');
+            color: white; font-family: 'Space Grotesk', sans-serif; 
+        }
+        .pixel { font-family: 'Press Start 2P', cursive; }
+        .admin-box { background: rgba(20, 5, 5, 0.9); border: 2px solid #3a1111; border-radius: 40px; }
+    </style>
+</head>
+<body class="hidden min-h-screen flex items-center justify-center p-6" id="root-access">
+
+    <div class="admin-box w-full max-w-5xl p-10 shadow-[0_0_50px_rgba(230,57,70,0.2)]">
+        <div class="flex justify-between items-center mb-10 border-b border-red-900/30 pb-6">
+            <div>
+                <h1 class="pixel text-red-600 text-[10px] mb-2 tracking-widest">ROOT_ACCESS_GRANTED</h1>
+                <p class="text-[11px] text-gray-500 font-mono uppercase">Master: <span id="admin-mail"></span></p>
+            </div>
+            <button onclick="window.location.href='index.html'" class="pixel text-[8px] bg-red-950 px-4 py-2 rounded border border-red-800">SAIR_DA_SALA</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-10">
+            <!-- REPOSITÓRIO -->
+            <div class="space-y-6">
+                <h3 class="pixel text-[8px] text-gold">💿 UPLOAD_ARENA_KITS</h3>
+                <div class="bg-black/60 p-6 rounded-3xl border border-white/5 space-y-4">
+                    <input type="text" id="k-name" placeholder="NOME_DO_KIT" class="w-full bg-black border border-white/10 p-3 rounded-xl text-xs text-white outline-none focus:border-gold">
+                    <input type="file" class="text-[10px] text-gray-500 file:bg-gold file:border-none file:px-3 file:py-1 file:rounded file:mr-4 file:cursor-pointer">
+                    <button onclick="alert('Kit Postado!')" class="w-full bg-orange-600 py-3 rounded-xl pixel text-[8px] font-bold">SUBIR_ARQUIVO</button>
+                </div>
+            </div>
+
+            <!-- BANIMENTOS -->
+            <div class="space-y-6">
+                <h3 class="pixel text-[8px] text-red-600">🚨 TRIBUNAL_BAN_UNIT</h3>
+                <div class="bg-black/60 p-6 rounded-3xl border border-red-900/20 space-y-4">
+                    <input type="text" id="b-mail" placeholder="EMAIL_ALVO" class="w-full bg-black border border-white/10 p-3 rounded-xl text-xs text-white outline-none focus:border-red-600">
+                    <button onclick="confirmBan()" class="w-full bg-red-600 py-3 rounded-xl pixel text-[8px] font-bold">EXECUTAR_BAN_HARDWARE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth } from './firebase-config.js';
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const MASTER = "eahprovideo1@gmail.com";
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.email === MASTER) {
+                document.getElementById('root-access').classList.remove('hidden');
+                document.getElementById('admin-mail').innerText = user.email;
+            } else {
+                alert("ACESSO NEGADO.");
+                window.location.href = "index.html";
+            }
+        });
+
+        window.confirmBan = () => {
+            const m = document.getElementById('b-mail').value;
+            if(confirm(`Deseja banir ${m} permanentemente?`)) alert("Usuário Banido.");
+        };
+    </script>
+</body>
+</html>
